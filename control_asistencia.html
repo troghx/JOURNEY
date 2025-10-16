@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSC - Control de Asistencia</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
+
+  <!-- Feather Icons (single include) -->
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js" defer></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .employee-card { transition: all 0.2s ease; }
+    .employee-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+    .checkmark { transition: all 0.3s ease; }
+    .checkmark.active { background-color: #10B981; color: white; border-color: #10B981; }
+    .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
+  </style>
+</head>
+
+<body class="bg-gray-50">
+  <div class="min-h-screen pb-20">
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+      <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <img src="https://placehold.co/64x64?text=JSC" alt="JSC Logo" class="h-8 w-8 object-contain" />
+          <h1 class="text-xl font-bold text-gray-800">JSC</h1>
+        </div>
+        <div class="text-sm text-gray-600">
+          <button id="date-selector" class="hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
+            <i data-feather="calendar"></i>
+            <span id="current-date"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+      <!-- Date Picker Modal -->
+      <div id="date-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+          <h3 class="text-lg font-semibold mb-4">Seleccionar fecha</h3>
+          <input type="date" id="date-input" class="w-full p-2 border rounded mb-4" />
+          <div class="flex justify-end space-x-2">
+            <button id="cancel-date" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+            <button id="confirm-date" class="px-4 py-2 bg-emerald-500 text-white rounded">Confirmar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="mb-6">
+        <div class="relative">
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Buscar empleado..."
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+          />
+          <i data-feather="search" class="absolute right-3 top-3 text-gray-400"></i>
+        </div>
+
+        <div class="flex space-x-2 mt-4 overflow-x-auto pb-2">
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap btn-pill-active" data-department="ALL">Todos</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="HABITACIONES">Habitaciones</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ALIMENTOS Y BEBIDAS">Alimentos y Bebidas</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="MANTENIMIENTO">Mantenimiento</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ADMINISTRATIVO">Administrativo</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ANIMACION">Animación</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="BELL BOYS">Bell Boys</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="BARES">Bares</button>
+          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="RESTAURANTE">Restaurante</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <div class="bg-white p-4 rounded-lg shadow">
+          <div class="text-gray-500 text-sm">Total empleados</div>
+          <div id="total-count" class="text-2xl font-bold text-gray-800">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+          <div class="text-gray-500 text-sm">Presentes hoy</div>
+          <div id="present-count" class="text-2xl font-bold text-emerald-600">0</div>
+        </div>
+      </div>
+
+      <!-- Employee List -->
+      <div id="employee-list" class="space-y-3"></div>
+    </main>
+
+    <!-- Floating Action Button (Export) -->
+    <button id="export-btn" title="Descargar asistencia (CSV)"
+      class="fixed bottom-6 right-6 bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
+      <i data-feather="download"></i>
+    </button>
+  </div>
+
+  <script>
+    // ======= Datos de ejemplo (reemplaza con tu fuente real) =======
+    const employees = [
+      { id: 27613, name: "ALDANA CERVANTES GUSTAVO BONIFACIO", position: "MESERO", department: "RESTAURANTE", checkedIn: false },
+      { id: 27444, name: "ALVAREZ GONZALEZ LUIS MARIO", position: "GERENTE DE EXPERIENCIAS", department: "ANIMACION", checkedIn: false },
+      { id: 27532, name: "ANDREW ZAMACONA JUAN MANUEL CEFERINO", position: "BELL BOYS", department: "BELL BOYS", checkedIn: false },
+      { id: 25957, name: "ARCIAS HERNANDEZ CAIN", position: "SUB JEFE", department: "MANTENIMIENTO", checkedIn: false },
+      { id: 27207, name: "ARRIAGA LOPEZ KARIM ALEJANDRO", position: "SUPERVISOR MANTENIMIENTO", department: "MANTENIMIENTO", checkedIn: false },
+      { id: 27628, name: "AVILA LLANES NICTE-HA FLORIANA", position: "MESERO BARES", department: "BARES", checkedIn: false },
+      { id: 27500, name: "AY SIERRA JESUS FRANCISCO", position: "PINTOR", department: "MANTENIMIENTO", checkedIn: false }
+    ];
+
+    // ======= Fecha =======
+    let currentDate = new Date();
+    const dateSelector = document.getElementById('date-selector');
+    const datePickerModal = document.getElementById('date-picker-modal');
+    const dateInput = document.getElementById('date-input');
+    const cancelDate = document.getElementById('cancel-date');
+    const confirmDate = document.getElementById('confirm-date');
+
+    function updateDateDisplay() {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('current-date').textContent = currentDate.toLocaleDateString('es-MX', options);
+    }
+    updateDateDisplay();
+
+    dateSelector.addEventListener('click', () => {
+      dateInput.valueAsDate = currentDate;
+      datePickerModal.classList.remove('hidden');
+    });
+    cancelDate.addEventListener('click', () => datePickerModal.classList.add('hidden'));
+    confirmDate.addEventListener('click', () => {
+      if (dateInput.value) {
+        currentDate = new Date(dateInput.value);
+        updateDateDisplay();
+        console.log('Fecha seleccionada:', currentDate);
+      }
+      datePickerModal.classList.add('hidden');
+    });
+    // Cerrar modal al hacer click fuera del cuadro
+    datePickerModal.addEventListener('click', (e) => {
+      if (e.target === datePickerModal) datePickerModal.classList.add('hidden');
+    });
+
+    // ======= Renderizado de empleados =======
+    const employeeList = document.getElementById('employee-list');
+
+    function renderEmployees() {
+      employeeList.innerHTML = '';
+      employees.forEach(emp => {
+        const card = document.createElement('div');
+        card.className = 'employee-card bg-white rounded-lg shadow p-4 flex justify-between items-center';
+        card.dataset.dept = (emp.department || '').toUpperCase();
+        card.dataset.name = (emp.name || '').toLowerCase();
+
+        card.innerHTML = \`
+          <div>
+            <div class="font-bold text-gray-800">\${emp.name}</div>
+            <div class="text-sm text-gray-500">\${emp.position} • \${emp.department}</div>
+            <div class="text-xs text-gray-400 mt-1">ID: \${emp.id}</div>
+          </div>
+          <button class="checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center cursor-pointer"
+                  data-id="\${emp.id}" aria-pressed="\${emp.checkedIn}">
+            <i data-feather="check" class="\${emp.checkedIn ? '' : 'opacity-0'}"></i>
+          </button>
+        \`;
+
+        employeeList.appendChild(card);
+      });
+
+      // Reemplaza íconos feather después de inyectar las tarjetas
+      if (window.feather && typeof feather.replace === 'function') {
+        feather.replace();
+      }
+    }
+
+    // ======= Filtros y búsqueda =======
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    let activeFilter = 'ALL';
+
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Estado visual
+        filterButtons.forEach(b => b.classList.remove('btn-pill-active'));
+        btn.classList.add('btn-pill-active');
+
+        activeFilter = (btn.dataset.department || 'ALL').toUpperCase();
+        filterEmployees();
+      });
+    });
+
+    const searchInput = document.getElementById('search-input');
+    searchInput.addEventListener('input', filterEmployees);
+
+    function filterEmployees() {
+      const searchTerm = (searchInput.value || '').toLowerCase();
+      const cards = document.querySelectorAll('.employee-card');
+      cards.forEach(card => {
+        const matchesName = card.dataset.name.includes(searchTerm);
+        const matchesDept = activeFilter === 'ALL' || card.dataset.dept === activeFilter;
+        card.style.display = (matchesName && matchesDept) ? 'flex' : 'none';
+      });
+    }
+
+    // ======= Asistencia (check-in) =======
+    function updatePresentCount() {
+      const presentCount = employees.filter(e => e.checkedIn).length;
+      document.getElementById('present-count').textContent = presentCount;
+    }
+    function updateTotalCount() {
+      document.getElementById('total-count').textContent = employees.length;
+    }
+
+    document.addEventListener('click', (e) => {
+      const mark = e.target.closest('.checkmark');
+      if (!mark) return;
+
+      const employeeId = parseInt(mark.getAttribute('data-id'));
+      const emp = employees.find(x => x.id === employeeId);
+      if (!emp) return;
+
+      // Toggle estado visual
+      mark.classList.toggle('active');
+      const icon = mark.querySelector('svg, i');
+      if (icon) {
+        icon.classList.toggle('opacity-0');
+      }
+
+      // Toggle estado lógico
+      emp.checkedIn = mark.classList.contains('active');
+      mark.setAttribute('aria-pressed', String(emp.checkedIn));
+
+      updatePresentCount();
+    });
+
+    // ======= Exportar CSV =======
+    function exportCSV() {
+      const headers = ['fecha','id','nombre','puesto','departamento','presente'];
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const rows = employees.map(e => [
+        dateStr, e.id, \`"\${e.name.replaceAll('"','""')}"\`,
+        \`"\${(e.position||'').replaceAll('"','""')}"\`,
+        \`"\${(e.department||'').replaceAll('"','""')}"\`,
+        e.checkedIn ? '1' : '0'
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = \`asistencia_\${dateStr}.csv\`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+    // ======= Init =======
+    document.addEventListener('DOMContentLoaded', () => {
+      renderEmployees();
+      updateTotalCount();
+      updatePresentCount();
+      filterEmployees();
+      if (window.feather && typeof feather.replace === 'function') feather.replace();
+    });
+  </script>
+</body>
+</html>
