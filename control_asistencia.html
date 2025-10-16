@@ -151,23 +151,46 @@
 
     function renderEmployees() {
       employeeList.innerHTML = '';
+      
       employees.forEach(emp => {
         const card = document.createElement('div');
+        const infoWrapper = document.createElement('div');
+        const nameEl = document.createElement('div');
+        const metaEl = document.createElement('div');
+        const idEl = document.createElement('div');
+        const checkButton = document.createElement('button');
+        const icon = document.createElement('i');
+        const isChecked = Boolean(emp.checkedIn);
+
         card.className = 'employee-card bg-white rounded-lg shadow p-4 flex justify-between items-center';
         card.dataset.dept = (emp.department || '').toUpperCase();
         card.dataset.name = (emp.name || '').toLowerCase();
 
-        card.innerHTML = \`
-          <div>
-            <div class="font-bold text-gray-800">\${emp.name}</div>
-            <div class="text-sm text-gray-500">\${emp.position} • \${emp.department}</div>
-            <div class="text-xs text-gray-400 mt-1">ID: \${emp.id}</div>
-          </div>
-          <button class="checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center cursor-pointer"
-                  data-id="\${emp.id}" aria-pressed="\${emp.checkedIn}">
-            <i data-feather="check" class="\${emp.checkedIn ? '' : 'opacity-0'}"></i>
-          </button>
-        \`;
+        nameEl.className = 'font-bold text-gray-800';
+        nameEl.textContent = emp.name || 'Empleado sin nombre';
+
+        metaEl.className = 'text-sm text-gray-500';
+        const metaParts = [emp.position, emp.department].filter(Boolean);
+        metaEl.textContent = metaParts.length ? metaParts.join(' • ') : 'Sin información';
+
+        idEl.className = 'text-xs text-gray-400 mt-1';
+        idEl.textContent = `ID: ${emp.id}`;
+
+        infoWrapper.appendChild(nameEl);
+        infoWrapper.appendChild(metaEl);
+        infoWrapper.appendChild(idEl);
+
+        checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center cursor-pointer';
+        if (isChecked) checkButton.classList.add('active');
+        checkButton.dataset.id = String(emp.id);
+        checkButton.setAttribute('aria-pressed', String(isChecked));
+
+        icon.dataset.feather = 'check';
+        if (!isChecked) icon.classList.add('opacity-0');
+        checkButton.appendChild(icon);
+
+        card.appendChild(infoWrapper);
+        card.appendChild(checkButton);
 
         employeeList.appendChild(card);
       });
@@ -197,7 +220,7 @@
     searchInput.addEventListener('input', filterEmployees);
 
     function filterEmployees() {
-      const searchTerm = (searchInput.value || '').toLowerCase();
+      const searchTerm = (searchInput.value || '').toLowerCase().trim();
       const cards = document.querySelectorAll('.employee-card');
       cards.forEach(card => {
         const matchesName = card.dataset.name.includes(searchTerm);
@@ -219,20 +242,19 @@
       const mark = e.target.closest('.checkmark');
       if (!mark) return;
 
-      const employeeId = parseInt(mark.getAttribute('data-id'));
+      const employeeId = parseInt(mark.getAttribute('data-id'), 10);
       const emp = employees.find(x => x.id === employeeId);
       if (!emp) return;
 
-      // Toggle estado visual
-      mark.classList.toggle('active');
+      // Toggle estado visual y lógico de forma sincronizada
+      const isActive = mark.classList.toggle('active');
       const icon = mark.querySelector('svg, i');
       if (icon) {
-        icon.classList.toggle('opacity-0');
+        icon.classList.toggle('opacity-0', !isActive);
       }
 
-      // Toggle estado lógico
-      emp.checkedIn = mark.classList.contains('active');
-      mark.setAttribute('aria-pressed', String(emp.checkedIn));
+      emp.checkedIn = isActive;
+      mark.setAttribute('aria-pressed', String(isActive));
 
       updatePresentCount();
     });
@@ -241,10 +263,13 @@
     function exportCSV() {
       const headers = ['fecha','id','nombre','puesto','departamento','presente'];
       const dateStr = currentDate.toISOString().split('T')[0];
+      const escapeQuotes = (text = '') => `"${String(text).replace(/"/g, '""')}"`;
       const rows = employees.map(e => [
-        dateStr, e.id, \`"\${e.name.replaceAll('"','""')}"\`,
-        \`"\${(e.position||'').replaceAll('"','""')}"\`,
-        \`"\${(e.department||'').replaceAll('"','""')}"\`,
+        dateStr,
+        e.id,
+        escapeQuotes(e.name),
+        escapeQuotes(e.position),
+        escapeQuotes(e.department),
         e.checkedIn ? '1' : '0'
       ]);
 
@@ -253,7 +278,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = \`asistencia_\${dateStr}.csv\`;
+      a.download = 'asistencia_' + dateStr + '.csv';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
