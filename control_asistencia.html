@@ -6,10 +6,13 @@
   <title>JSC - Control de Asistencia</title>
 
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Feather Icons (single include) -->
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js" defer></script>
+
+    <!-- SheetJS (Excel parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -31,7 +34,12 @@
           <img src="https://placehold.co/64x64?text=JSC" alt="JSC Logo" class="h-8 w-8 object-contain" />
           <h1 class="text-xl font-bold text-gray-800">JSC</h1>
         </div>
-        <div class="text-sm text-gray-600">
+        <div class="flex items-center space-x-3 text-sm text-gray-600">
+          <button id="import-btn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
+            <i data-feather="upload"></i>
+            <span>Importar desde Excel</span>
+          </button>
+          <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
           <button id="date-selector" class="hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
             <i data-feather="calendar"></i>
             <span id="current-date"></span>
@@ -103,16 +111,53 @@
   </div>
 
   <script>
-    // ======= Datos de ejemplo (reemplaza con tu fuente real) =======
-    const employees = [
-      { id: 27613, name: "ALDANA CERVANTES GUSTAVO BONIFACIO", position: "MESERO", department: "RESTAURANTE", checkedIn: false },
-      { id: 27444, name: "ALVAREZ GONZALEZ LUIS MARIO", position: "GERENTE DE EXPERIENCIAS", department: "ANIMACION", checkedIn: false },
-      { id: 27532, name: "ANDREW ZAMACONA JUAN MANUEL CEFERINO", position: "BELL BOYS", department: "BELL BOYS", checkedIn: false },
-      { id: 25957, name: "ARCIAS HERNANDEZ CAIN", position: "SUB JEFE", department: "MANTENIMIENTO", checkedIn: false },
-      { id: 27207, name: "ARRIAGA LOPEZ KARIM ALEJANDRO", position: "SUPERVISOR MANTENIMIENTO", department: "MANTENIMIENTO", checkedIn: false },
-      { id: 27628, name: "AVILA LLANES NICTE-HA FLORIANA", position: "MESERO BARES", department: "BARES", checkedIn: false },
-      { id: 27500, name: "AY SIERRA JESUS FRANCISCO", position: "PINTOR", department: "MANTENIMIENTO", checkedIn: false }
-    ];
+    // ======= Datos de empleados (se cargan desde archivo) =======
+    let employees = [];
+    let tempIdCounter = 0;
+
+    function generateTempId() {
+      tempIdCounter += 1;
+      return `tmp-${Date.now()}-${tempIdCounter}`;
+    }
+
+    function normalizeEmployee(row) {
+      const normalized = {};
+      Object.entries(row || {}).forEach(([key, value]) => {
+        if (!key) return;
+        normalized[key.trim().toLowerCase()] = value;
+      });
+
+      const idValue = normalized.id ?? normalized['no'] ?? normalized['numero'];
+      const nameValue = normalized.nombre ?? normalized.name ?? '';
+      const positionValue = normalized.puesto ?? normalized.position ?? '';
+      const departmentValue = normalized.departamento ?? normalized.department ?? '';
+      const presentValue = normalized.presente ?? normalized.present ?? normalized.asistio;
+
+      const parseBoolean = (value) => {
+        if (typeof value === 'number') return value !== 0;
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const normalizedValue = value.trim().toLowerCase();
+          return ['1', 'true', 'sí', 'si', 'x', 'yes'].includes(normalizedValue);
+        }
+        return false;
+      };
+
+      const toCleanString = (value) => {
+        if (value === undefined || value === null) return '';
+        return String(value).trim();
+      };
+
+      const finalId = (idValue !== undefined && idValue !== null && String(idValue).trim() !== '') ? idValue : generateTempId();
+
+      return {
+        id: finalId,
+        name: toCleanString(nameValue),
+        position: toCleanString(positionValue),
+        department: toCleanString(departmentValue),
+        checkedIn: parseBoolean(presentValue)
+      };
+    }
 
     // ======= Fecha =======
     let currentDate = new Date();
@@ -128,16 +173,23 @@
     }
     updateDateDisplay();
 
+      function formatForInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     dateSelector.addEventListener('click', () => {
-      dateInput.valueAsDate = currentDate;
+      dateInput.value = formatForInput(currentDate);
       datePickerModal.classList.remove('hidden');
     });
     cancelDate.addEventListener('click', () => datePickerModal.classList.add('hidden'));
     confirmDate.addEventListener('click', () => {
       if (dateInput.value) {
-        currentDate = new Date(dateInput.value);
+        const [year, month, day] = dateInput.value.split('-').map(Number);
+        currentDate = new Date(year, month - 1, day);
         updateDateDisplay();
-        console.log('Fecha seleccionada:', currentDate);
       }
       datePickerModal.classList.add('hidden');
     });
@@ -195,6 +247,13 @@
         employeeList.appendChild(card);
       });
 
+        if (!employees.length) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
+        emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
+        employeeList.appendChild(emptyState);
+      }
+
       // Reemplaza íconos feather después de inyectar las tarjetas
       if (window.feather && typeof feather.replace === 'function') {
         feather.replace();
@@ -242,8 +301,8 @@
       const mark = e.target.closest('.checkmark');
       if (!mark) return;
 
-      const employeeId = parseInt(mark.getAttribute('data-id'), 10);
-      const emp = employees.find(x => x.id === employeeId);
+      const employeeId = mark.getAttribute('data-id');
+      const emp = employees.find(x => String(x.id) === employeeId);
       if (!emp) return;
 
       // Toggle estado visual y lógico de forma sincronizada
@@ -262,7 +321,7 @@
     // ======= Exportar CSV =======
     function exportCSV() {
       const headers = ['fecha','id','nombre','puesto','departamento','presente'];
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = formatForInput(currentDate);
       const escapeQuotes = (text = '') => `"${String(text).replace(/"/g, '""')}"`;
       const rows = employees.map(e => [
         dateStr,
@@ -286,6 +345,41 @@
     }
 
     document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+    const importBtn = document.getElementById('import-btn');
+    const importFileInput = document.getElementById('import-file');
+
+    importBtn.addEventListener('click', () => importFileInput.click());
+
+    importFileInput.addEventListener('change', (event) => {
+      const [file] = event.target.files || [];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const [firstSheetName] = workbook.SheetNames;
+          if (!firstSheetName) throw new Error('El archivo no contiene hojas.');
+
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          employees = rows.map(normalizeEmployee).filter(emp => emp.name);
+
+          renderEmployees();
+          updateTotalCount();
+          updatePresentCount();
+          filterEmployees();
+        } catch (error) {
+          console.error(error);
+          alert('No se pudo leer el archivo. Verifica que tenga encabezados como ID, Nombre, Puesto y Departamento.');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
 
     // ======= Init =======
     document.addEventListener('DOMContentLoaded', () => {
