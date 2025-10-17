@@ -57,6 +57,24 @@ function resolveDateFromQuery(rawDate) {
   return { date, key: formatDateKey(date) };
 }
 
+function generateManualId() {
+  return `manual-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function normalizeNameKey(name = '') {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function toNullableText(value) {
+  const text = String(value ?? '').trim();
+  return text === '' ? null : text;
+}
+
 async function ensureTable(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS employees (
@@ -186,73 +204,253 @@ export async function handler(event) {
         };
       }
 
+      const singleEmployeePayload = body && typeof body.employee === 'object' ? body.employee : null;
+      if (singleEmployeePayload) {
+        const name = String(singleEmployeePayload.name ?? '').trim();
+        if (!name) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'El campo name es obligatorio para crear un empleado.' }),
+          };
+        }
+
+        const normalizedName = normalizeNameKey(name);
+        if (normalizedName) {
+          const existingNameRows = await sql`SELECT name FROM employees`;
+          const conflict = existingNameRows.some(row => normalizeNameKey(row.name) === normalizedName);
+          if (conflict) {
+            return {
+              statusCode: 409,
+              headers,
+              body: JSON.stringify({ error: 'Ya existe un empleado con ese nombre.' }),
+            };
+          }
+        }
+
+        const manualId = generateManualId();
+        const position = toNullableText(singleEmployeePayload.position);
+        const department = toNullableText(singleEmployeePayload.department);
+
+        const inserted = await sql`
+          INSERT INTO employees (id, name, position, department, checked_in, updated_at)
+          VALUES (${manualId}, ${name}, ${position}, ${department}, FALSE, now())
+          RETURNING id, name, position, department, checked_in, FALSE AS attendance_recorded
+        `;
+
+        if (!inserted.length) {
+          return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'No se pudo crear el empleado.' }),
+          };
+        }
+
+        return {
+          statusCode: 201,
+          headers,
+          body: JSON.stringify({ employee: mapRow(inserted[0]) }),
+        };
+      }
+
       const incoming = Array.isArray(body.employees) ? body.employees : [];
       if (!incoming.length) {
         const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
-        return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0 }) };
+        return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0, updated: 0, matchedByName: 0, promoted: 0 }) };
       }
 
-      const clean = [];
-      const seen = new Set();
-      for (const e of incoming) {
-        const id = String(e.id ?? '').trim();
-        if (!id || seen.has(id)) continue;
-        seen.add(id);
-        clean.push({
-          id,
-          name: String(e.name ?? '').trim(),
-          position: String(e.position ?? '').trim(),
-          department: String(e.department ?? '').trim(),
-          checkedIn: !!e.checkedIn,
-        });
+      const existingRows = await sql`SELECT id, name, position, department, checked_in FROM employees`;
+      const existingById = new Map();
+      const existingByName = new Map();
+      existingRows.forEach(row => {
+        existingById.set(row.id, row);
+        const nameKey = normalizeNameKey(row.name);
+        if (nameKey && !existingByName.has(nameKey)) {
+          existingByName.set(nameKey, row);
+        }
+      });
+
+      const seenIds = new Set();
+      const seenNames = new Set();
+      const inserts = [];
+      const updatesById = [];
+      const updatesByName = [];
+      const promotions = [];
+      let skipped = 0;
+
+      for (const raw of incoming) {
+        const id = String(raw?.id ?? '').trim();
+        const name = String(raw?.name ?? '').trim();
+        if (!name) {
+          skipped += 1;
+          continue;
+        }
+
+        const position = String(raw?.position ?? '').trim();
+        const department = String(raw?.department ?? '').trim();
+        const hasChecked = typeof raw?.checkedIn === 'boolean';
+        const checkedIn = hasChecked ? Boolean(raw.checkedIn) : false;
+        const nameKey = normalizeNameKey(name);
+
+        if (id) {
+          if (seenIds.has(id)) {
+            skipped += 1;
+            continue;
+          }
+          seenIds.add(id);
+        }
+
+        if (!id && nameKey) {
+          if (seenNames.has(nameKey)) {
+            skipped += 1;
+            continue;
+          }
+          seenNames.add(nameKey);
+        }
+
+        const existingByIdRow = id ? existingById.get(id) : null;
+        if (existingByIdRow) {
+          updatesById.push({ id, name, position, department, checkedIn, hasChecked, existing: existingByIdRow });
+          existingByName.set(nameKey, { ...existingByIdRow, name });
+          continue;
+        }
+
+        const existingByNameRow = nameKey ? existingByName.get(nameKey) : null;
+        if (existingByNameRow && existingByNameRow.id && existingByNameRow.id.startsWith('manual-') && id) {
+          promotions.push({ oldId: existingByNameRow.id, newId: id, name, position, department, checkedIn, hasChecked, existing: existingByNameRow });
+          existingById.set(id, { ...existingByNameRow, id });
+          existingByName.set(nameKey, { ...existingByNameRow, id });
+          continue;
+        }
+
+        if (existingByNameRow) {
+          updatesByName.push({ id: existingByNameRow.id, name, position, department, checkedIn, hasChecked, existing: existingByNameRow });
+          continue;
+        }
+
+        const finalId = id || generateManualId();
+        inserts.push({ id: finalId, name, position, department, checkedIn });
       }
 
       let inserted = 0;
-      let skipped = 0;
+      let updated = 0;
+      let matchedByName = 0;
+      let promoted = 0;
 
-      if (clean.length) {
-        const columns = ['id', 'name', 'position', 'department', 'checked_in'];
-        const paramsPerRow = columns.length;
-        const placeholders = clean
-          .map((_, rowIndex) => {
-            const base = rowIndex * paramsPerRow;
-            const rowPlaceholders = columns.map((__, colIndex) => `$${base + colIndex + 1}`);
-            return `(${rowPlaceholders.join(', ')})`;
-          })
-          .join(', ');
+      await sql.begin(async (tx) => {
+        for (const item of updatesById) {
+          const finalName = item.name || item.existing.name || '';
+          const finalPosition = item.position || item.existing.position || '';
+          const finalDepartment = item.department || item.existing.department || '';
+          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
+          await tx`
+            UPDATE employees
+            SET name = ${finalName},
+                position = ${toNullableText(finalPosition)},
+                department = ${toNullableText(finalDepartment)},
+                checked_in = ${finalChecked},
+                updated_at = now()
+            WHERE id = ${item.id}
+          `;
+          updated += 1;
+        }
 
-        const query = `
-          INSERT INTO employees (id, name, position, department, checked_in)
-          VALUES ${placeholders}
-          ON CONFLICT (id) DO NOTHING
-          RETURNING id
-        `;
-    
-        const queryParams = clean.flatMap(e => [
-          e.id,
-          e.name,
-          e.position,
-          e.department,
-          e.checkedIn,
-        ]);
+        for (const item of updatesByName) {
+          const finalName = item.name || item.existing.name || '';
+          const finalPosition = item.position || item.existing.position || '';
+          const finalDepartment = item.department || item.existing.department || '';
+          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
+          await tx`
+            UPDATE employees
+            SET name = ${finalName},
+                position = ${toNullableText(finalPosition)},
+                department = ${toNullableText(finalDepartment)},
+                checked_in = ${finalChecked},
+                updated_at = now()
+            WHERE id = ${item.id}
+          `;
+          matchedByName += 1;
+        }
 
-        const insertedRows = await sql(query, queryParams);
-        inserted = insertedRows.length;
-        skipped = clean.length - inserted;
-      }
+        for (const item of promotions) {
+          const finalName = item.name || item.existing.name || '';
+          const finalPosition = item.position || item.existing.position || '';
+          const finalDepartment = item.department || item.existing.department || '';
+          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
+
+          await tx`
+            INSERT INTO employees (id, name, position, department, checked_in, updated_at)
+            VALUES (${item.newId}, ${finalName}, ${toNullableText(finalPosition)}, ${toNullableText(finalDepartment)}, ${finalChecked}, now())
+            ON CONFLICT (id) DO UPDATE
+            SET name = EXCLUDED.name,
+                position = EXCLUDED.position,
+                department = EXCLUDED.department,
+                checked_in = EXCLUDED.checked_in,
+                updated_at = now()
+          `;
+
+          await tx`
+            UPDATE employee_attendance
+            SET employee_id = ${item.newId}
+            WHERE employee_id = ${item.oldId}
+          `;
+
+          await tx`DELETE FROM employees WHERE id = ${item.oldId}`;
+          promoted += 1;
+        }
+
+        if (inserts.length) {
+          const columns = ['id', 'name', 'position', 'department', 'checked_in'];
+          const paramsPerRow = columns.length;
+          const placeholders = inserts
+            .map((_, rowIndex) => {
+              const base = rowIndex * paramsPerRow;
+              const rowPlaceholders = columns.map((__, colIndex) => `$${base + colIndex + 1}`);
+              return `(${rowPlaceholders.join(', ')})`;
+            })
+            .join(', ');
+
+          const query = `
+            INSERT INTO employees (id, name, position, department, checked_in)
+            VALUES ${placeholders}
+            ON CONFLICT (id) DO NOTHING
+            RETURNING id
+          `;
+
+          const queryParams = inserts.flatMap(e => [
+            e.id,
+            e.name,
+            toNullableText(e.position),
+            toNullableText(e.department),
+            e.checkedIn,
+          ]);
+
+          const insertedRows = await tx(query, queryParams);
+          inserted = insertedRows.length;
+          skipped += inserts.length - insertedRows.length;
+        }
+      });
 
       const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
-      return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }) };
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          employees: rows.map(mapRow),
+          inserted,
+          skipped,
+          updated,
+          matchedByName,
+          promoted,
+        }),
+      };
     }
 
     if (method === 'DELETE') {
-      let dateParam = String((qs.date || '').trim());
-      if (!dateParam && event.body) {
+      let parsedBody = {};
+      if (event.body) {
         try {
-          const parsed = JSON.parse(event.body || '{}');
-          if (parsed && parsed.date) {
-            dateParam = String(parsed.date).trim();
-          }
+          parsedBody = JSON.parse(event.body || '{}');
         } catch (error) {
           return {
             statusCode: 400,
@@ -260,6 +458,73 @@ export async function handler(event) {
             body: JSON.stringify({ error: 'El cuerpo de la solicitud no contiene JSON válido.' }),
           };
         }
+      }
+      
+      let employeeId = '';
+      if (parsedBody && parsedBody.employeeId !== undefined && parsedBody.employeeId !== null) {
+        employeeId = String(parsedBody.employeeId).trim();
+      } else if (qs.employeeId) {
+        employeeId = String(qs.employeeId).trim();
+      }
+
+      if (employeeId) {
+        const rawDate = parsedBody && parsedBody.date ? String(parsedBody.date).trim() : String((qs.date || '').trim());
+        const resolvedDate = rawDate ? resolveDateFromQuery(rawDate) : null;
+        if (rawDate && !resolvedDate) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'El campo date es inválido. Usa el formato YYYY-MM-DD.' }),
+          };
+        }
+
+        const deletedEmployees = await sql`
+          DELETE FROM employees
+          WHERE id = ${employeeId}
+          RETURNING id
+        `;
+
+        if (!deletedEmployees.length) {
+          return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado.' }) };
+        }
+
+        let rows;
+        let hasAttendanceRecords = null;
+        if (resolvedDate) {
+          rows = await sql`
+            SELECT
+              e.id,
+              e.name,
+              e.position,
+              e.department,
+              COALESCE(a.checked_in, FALSE) AS checked_in,
+              (a.employee_id IS NOT NULL) AS attendance_recorded
+            FROM employees e
+            LEFT JOIN employee_attendance a
+              ON a.employee_id = e.id AND a.attendance_date = ${resolvedDate.key}
+            ORDER BY e.name ASC
+          `;
+          hasAttendanceRecords = rows.some(row => row.attendance_recorded);
+        } else {
+          rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+        }
+
+        const responseBody = {
+          employees: rows.map(mapRow),
+          removed: deletedEmployees.length,
+        };
+
+        if (resolvedDate) {
+          responseBody.hasAttendanceRecords = hasAttendanceRecords;
+          responseBody.date = resolvedDate.key;
+        }
+
+        return { statusCode: 200, headers, body: JSON.stringify(responseBody) };
+      }
+
+      let dateParam = String((qs.date || '').trim());
+      if (!dateParam && parsedBody && parsedBody.date) {
+        dateParam = String(parsedBody.date).trim();
       }
       if (!dateParam) {
         return {
