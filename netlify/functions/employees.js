@@ -84,7 +84,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
 };
 
 function mapRow(r) {
@@ -233,6 +233,61 @@ export async function handler(event) {
 
       const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
       return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }) };
+    }
+
+    if (method === 'DELETE') {
+      let dateParam = String((qs.date || '').trim());
+      if (!dateParam && event.body) {
+        try {
+          const parsed = JSON.parse(event.body || '{}');
+          if (parsed && parsed.date) {
+            dateParam = String(parsed.date).trim();
+          }
+        } catch (error) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'El cuerpo de la solicitud no contiene JSON válido.' }),
+          };
+        }
+      }
+      if (!dateParam) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El campo date es requerido para limpiar asistencias.' }),
+        };
+      }
+
+      const resolvedDate = resolveDateFromQuery(dateParam);
+      if (!resolvedDate) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El campo date es inválido. Usa el formato YYYY-MM-DD.' }),
+        };
+      }
+
+      const deletedRows = await sql`
+        DELETE FROM employee_attendance
+        WHERE attendance_date = ${resolvedDate.key}
+        RETURNING employee_id
+      `;
+
+      if (deletedRows.length) {
+        const ids = deletedRows.map(row => row.employee_id);
+        await sql`
+          UPDATE employees
+          SET checked_in = FALSE, updated_at = now()
+          WHERE id = ANY(${ids})
+        `;
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ cleared: deletedRows.length, date: resolvedDate.key }),
+      };
     }
 
     if (method === 'PATCH') {
