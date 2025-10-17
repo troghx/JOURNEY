@@ -38,6 +38,10 @@
           <h1 class="text-xl font-bold text-gray-800">JSC</h1>
         </div>
         <div class="flex items-center space-x-3 text-sm text-gray-600">
+            <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
+            <i data-feather="user-plus"></i>
+            <span>Agregar personal</span>
+          </button>
           <button id="import-btn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
             <i data-feather="upload"></i>
             <span>Importar desde Excel</span>
@@ -62,6 +66,30 @@
             <button id="cancel-date" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
             <button id="confirm-date" class="px-4 py-2 bg-emerald-500 text-white rounded">Confirmar</button>
           </div>
+        </div>
+      </div>
+
+      <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+          <h3 class="text-lg font-semibold mb-4">Agregar nuevo personal</h3>
+          <form id="add-employee-form" class="space-y-4">
+            <div>
+              <label for="add-employee-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+              <input id="add-employee-name" name="name" type="text" required placeholder="Ej. Juan Pérez" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div>
+              <label for="add-employee-position" class="block text-sm font-medium text-gray-700 mb-1">Puesto (opcional)</label>
+              <input id="add-employee-position" name="position" type="text" placeholder="Ej. Auxiliar" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div>
+              <label for="add-employee-department" class="block text-sm font-medium text-gray-700 mb-1">Área o departamento (opcional)</label>
+              <input id="add-employee-department" name="department" type="text" placeholder="Ej. Operaciones" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+              <button type="button" id="cancel-add-employee" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+              <button type="submit" id="submit-add-employee" class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors">Guardar</button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -166,7 +194,6 @@
   <script>
     const API_BASE_URL = '/.netlify/functions/employees';
     let employees = [];
-    let tempIdCounter = 0;
     let currentDate = new Date();
     let attendanceHasRecords = false;
     let isReadOnlyDate = false;
@@ -177,6 +204,14 @@
     const searchInput = document.getElementById('search-input');
     const readOnlyBanner = document.getElementById('read-only-banner');
     const attendanceTableBody = document.getElementById('attendance-table-body');
+    const addEmployeeBtn = document.getElementById('add-employee-btn');
+    const addEmployeeModal = document.getElementById('add-employee-modal');
+    const addEmployeeForm = document.getElementById('add-employee-form');
+    const addEmployeeNameInput = document.getElementById('add-employee-name');
+    const addEmployeePositionInput = document.getElementById('add-employee-position');
+    const addEmployeeDepartmentInput = document.getElementById('add-employee-department');
+    const cancelAddEmployeeBtn = document.getElementById('cancel-add-employee');
+    const submitAddEmployeeBtn = document.getElementById('submit-add-employee');
     const clearAttendanceBtn = document.getElementById('clear-attendance-btn');
     const clearConfirmationCard = document.getElementById('clear-confirmation');
     const clearConfirmationDate = document.getElementById('clear-confirmation-date');
@@ -184,11 +219,6 @@
     const confirmClearBtn = document.getElementById('confirm-clear-btn');
     const clearToast = document.getElementById('clear-toast');
     let clearToastTimeout = null;
-    function generateTempId() {
-      tempIdCounter += 1;
-      return `tmp-${Date.now()}-${tempIdCounter}`;
-    }
-
     async function parseErrorResponse(response) {
       if (!response) return 'Error desconocido del servidor.';
       const statusText = response.status ? ` (HTTP ${response.status})` : '';
@@ -221,6 +251,93 @@
       } catch (error) {
         console.warn('No se pudo obtener la información de depuración del servidor:', error);
         return null;
+      }
+    }
+    
+        function resetAddEmployeeForm() {
+      if (addEmployeeForm) addEmployeeForm.reset();
+      if (addEmployeeNameInput) addEmployeeNameInput.focus();
+    }
+
+    function showAddEmployeeModal() {
+      if (!addEmployeeModal) return;
+      addEmployeeModal.classList.remove('hidden');
+      resetAddEmployeeForm();
+    }
+
+    function hideAddEmployeeModal() {
+      if (!addEmployeeModal) return;
+      addEmployeeModal.classList.add('hidden');
+    }
+
+    async function createManualEmployee({ name, position, department }) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee: {
+              name,
+              position,
+              department,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo agregar el empleado.');
+        }
+
+        const payload = await response.json();
+        if (!payload || !payload.employee) {
+          throw new Error('El servidor no devolvió la información del empleado creado.');
+        }
+
+        const newEmployee = mapServerEmployee(payload.employee);
+        employees.push(newEmployee);
+        employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+        attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        recalculateReadOnlyState();
+        refreshUI();
+        return newEmployee;
+      } catch (error) {
+        console.error('Error al crear empleado manual:', error);
+        throw error;
+      }
+    }
+
+    async function deleteEmployeeFromServer(id, dateStr) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId: id, date: dateStr }),
+        });
+
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo eliminar al empleado.');
+        }
+
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = payload.employees.map(mapServerEmployee);
+        } else {
+          employees = employees.filter(emp => String(emp.id) !== String(id));
+        }
+
+        if (typeof payload.hasAttendanceRecords === 'boolean') {
+          attendanceHasRecords = payload.hasAttendanceRecords;
+        } else {
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        }
+
+        recalculateReadOnlyState();
+        refreshUI();
+      } catch (error) {
+        console.error('Error al eliminar empleado:', error);
+        throw error;
       }
     }
 
@@ -257,7 +374,7 @@
         return String(value).trim();
       };
 
-      const finalId = (idValue !== undefined && idValue !== null && String(idValue).trim() !== '') ? idValue : generateTempId();
+      const finalId = (idValue !== undefined && idValue !== null && String(idValue).trim() !== '') ? String(idValue).trim() : '';
 
       return {
         id: finalId,
@@ -376,10 +493,20 @@
           recalculateReadOnlyState();
           refreshUI();
         }
-        if (typeof payload.inserted === 'number' || typeof payload.skipped === 'number') {
-          const inserted = payload.inserted ?? 0;
-          const skipped = payload.skipped ?? 0;
-          alert(`Importación completada. Nuevos: ${inserted}. Omitidos por ID duplicado: ${skipped}.`);
+        if (
+          typeof payload.inserted === 'number' ||
+          typeof payload.skipped === 'number' ||
+          typeof payload.updated === 'number' ||
+          typeof payload.matchedByName === 'number' ||
+          typeof payload.promoted === 'number'
+        ) {
+          const summaryParts = [];
+          summaryParts.push(`Nuevos: ${payload.inserted ?? 0}`);
+          summaryParts.push(`Omitidos: ${payload.skipped ?? 0}`);
+          summaryParts.push(`Actualizados por ID: ${payload.updated ?? 0}`);
+          summaryParts.push(`Actualizados por nombre: ${payload.matchedByName ?? 0}`);
+          summaryParts.push(`Convertidos desde alta manual: ${payload.promoted ?? 0}`);
+          alert('Importación completada.\n' + summaryParts.join('\n'));
         }
       } catch (error) {
         console.error('Error al guardar empleados en el servidor:', error);
@@ -471,13 +598,65 @@
       if (e.target === datePickerModal) datePickerModal.classList.add('hidden');
     });
 
+        if (addEmployeeBtn) {
+      addEmployeeBtn.addEventListener('click', () => {
+        showAddEmployeeModal();
+      });
+    }
+
+    if (cancelAddEmployeeBtn) {
+      cancelAddEmployeeBtn.addEventListener('click', () => {
+        hideAddEmployeeModal();
+      });
+    }
+
+    if (addEmployeeModal) {
+      addEmployeeModal.addEventListener('click', (event) => {
+        if (event.target === addEmployeeModal) {
+          hideAddEmployeeModal();
+        }
+      });
+    }
+
+    if (addEmployeeForm) {
+      addEmployeeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddEmployeeBtn) return;
+
+        const name = (addEmployeeNameInput?.value || '').trim();
+        const position = (addEmployeePositionInput?.value || '').trim();
+        const department = (addEmployeeDepartmentInput?.value || '').trim();
+
+        if (!name) {
+          alert('Por favor escribe el nombre del colaborador.');
+          addEmployeeNameInput?.focus();
+          return;
+        }
+
+        submitAddEmployeeBtn.disabled = true;
+        submitAddEmployeeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+        try {
+          await createManualEmployee({ name, position, department });
+          hideAddEmployeeModal();
+        } catch (error) {
+          alert('No se pudo agregar al empleado. ' + (error?.message || 'Inténtalo nuevamente.'));
+        } finally {
+          submitAddEmployeeBtn.disabled = false;
+          submitAddEmployeeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      });
+    }
+
     function renderEmployees() {
       employeeList.innerHTML = '';
       
       employees.forEach(emp => {
         const card = document.createElement('div');
         const infoWrapper = document.createElement('div');
+        const nameRow = document.createElement('div');
         const nameEl = document.createElement('div');
+        const deleteBtn = document.createElement('button');
         const metaEl = document.createElement('div');
         const idEl = document.createElement('div');
         const checkButton = document.createElement('button');
@@ -491,17 +670,30 @@
           card.classList.add('opacity-60');
         }
 
+        nameRow.className = 'flex items-start justify-between space-x-3';
+
         nameEl.className = 'font-bold text-gray-800';
         nameEl.textContent = emp.name || 'Empleado sin nombre';
+
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'delete-employee-btn p-1 rounded-full text-rose-500 hover:text-rose-600 transition-colors flex-shrink-0';
+        deleteBtn.dataset.id = String(emp.id);
+        deleteBtn.dataset.name = emp.name || '';
+        deleteBtn.setAttribute('aria-label', `Eliminar ${emp.name || 'empleado'}`);
+        deleteBtn.innerHTML = '<i data-feather="trash-2"></i>';
+
+        nameRow.appendChild(nameEl);
+        nameRow.appendChild(deleteBtn);
 
         metaEl.className = 'text-sm text-gray-500';
         const metaParts = [emp.position, emp.department].filter(Boolean);
         metaEl.textContent = metaParts.length ? metaParts.join(' • ') : 'Sin información';
 
         idEl.className = 'text-xs text-gray-400 mt-1';
-        idEl.textContent = `ID: ${emp.id}`;
+        const idValue = String(emp.id || '');
+        idEl.textContent = idValue && !idValue.startsWith('manual-') ? `ID: ${idValue}` : 'ID: Pendiente';
 
-        infoWrapper.appendChild(nameEl);
+        infoWrapper.appendChild(nameRow);
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
 
@@ -761,6 +953,24 @@
       updateReport();
     });
 
+    document.addEventListener('click', async (event) => {
+      const deleteBtn = event.target.closest('.delete-employee-btn');
+      if (!deleteBtn) return;
+
+      const employeeId = deleteBtn.getAttribute('data-id');
+      if (!employeeId) return;
+
+      const employeeName = deleteBtn.getAttribute('data-name') || 'este colaborador';
+      const confirmed = confirm(`¿Eliminar a ${employeeName}? Esta acción quitará su historial de asistencia.`);
+      if (!confirmed) return;
+
+      try {
+        await deleteEmployeeFromServer(employeeId, formatForInput(currentDate));
+      } catch (error) {
+        alert('No se pudo eliminar al empleado. ' + (error?.message || 'Inténtalo nuevamente.'));
+      }
+    });
+
     function exportCSV() {
       const headers = ['fecha','id','nombre','puesto','departamento','presente'];
       const dateStr = formatForInput(currentDate);
@@ -846,6 +1056,7 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         hideClearConfirmation();
+        hideAddEmployeeModal();
       }
     });
 
