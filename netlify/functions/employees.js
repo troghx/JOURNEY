@@ -337,7 +337,7 @@ export async function handler(event) {
       let matchedByName = 0;
       let promoted = 0;
 
-      await sql.begin(async (tx) => {
+      await sql.transaction(async (tx) => {
         for (const item of updatesById) {
           const finalName = item.name || item.existing.name || '';
           const finalPosition = item.position || item.existing.position || '';
