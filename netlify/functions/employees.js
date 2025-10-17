@@ -336,122 +336,103 @@ export async function handler(event) {
       let updated = 0;
       let matchedByName = 0;
       let promoted = 0;
+      let skippedFromInsert = 0;
 
-      const transactionSummary = await sql.begin(async (tx) => {
-        let txInserted = 0;
-        let txUpdated = 0;
-        let txMatchedByName = 0;
-        let txPromoted = 0;
-        let txSkippedFromInsert = 0;
+      for (const item of updatesById) {
+        const finalName = item.name || item.existing.name || '';
+        const finalPosition = item.position || item.existing.position || '';
+        const finalDepartment = item.department || item.existing.department || '';
+        const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
 
-        for (const item of updatesById) {
-          const finalName = item.name || item.existing.name || '';
-          const finalPosition = item.position || item.existing.position || '';
-          const finalDepartment = item.department || item.existing.department || '';
-          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
-          await tx`
-            UPDATE employees
-            SET name = ${finalName},
-                position = ${toNullableText(finalPosition)},
-                department = ${toNullableText(finalDepartment)},
-                checked_in = ${finalChecked},
-                updated_at = now()
-            WHERE id = ${item.id}
-          `;
-          txUpdated += 1;
-        }
+        await sql`
+          UPDATE employees
+          SET name = ${finalName},
+              position = ${toNullableText(finalPosition)},
+              department = ${toNullableText(finalDepartment)},
+              checked_in = ${finalChecked},
+              updated_at = now()
+          WHERE id = ${item.id}
+        `;
+        updated += 1;
+      }
 
-        for (const item of updatesByName) {
-          const finalName = item.name || item.existing.name || '';
-          const finalPosition = item.position || item.existing.position || '';
-          const finalDepartment = item.department || item.existing.department || '';
-          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
-          await tx`
-            UPDATE employees
-            SET name = ${finalName},
-                position = ${toNullableText(finalPosition)},
-                department = ${toNullableText(finalDepartment)},
-                checked_in = ${finalChecked},
-                updated_at = now()
-            WHERE id = ${item.id}
-          `;
-          txMatchedByName += 1;
-        }
+      for (const item of updatesByName) {
+        const finalName = item.name || item.existing.name || '';
+        const finalPosition = item.position || item.existing.position || '';
+        const finalDepartment = item.department || item.existing.department || '';
+        const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
 
-        for (const item of promotions) {
-          const finalName = item.name || item.existing.name || '';
-          const finalPosition = item.position || item.existing.position || '';
-          const finalDepartment = item.department || item.existing.department || '';
-          const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
+        await sql`
+          UPDATE employees
+          SET name = ${finalName},
+              position = ${toNullableText(finalPosition)},
+              department = ${toNullableText(finalDepartment)},
+              checked_in = ${finalChecked},
+              updated_at = now()
+          WHERE id = ${item.id}
+        `;
+        matchedByName += 1;
+      }
 
-          await tx`
-            INSERT INTO employees (id, name, position, department, checked_in, updated_at)
-            VALUES (${item.newId}, ${finalName}, ${toNullableText(finalPosition)}, ${toNullableText(finalDepartment)}, ${finalChecked}, now())
-            ON CONFLICT (id) DO UPDATE
-            SET name = EXCLUDED.name,
-                position = EXCLUDED.position,
-                department = EXCLUDED.department,
-                checked_in = EXCLUDED.checked_in,
-                updated_at = now()
-          `;
+      for (const item of promotions) {
+        const finalName = item.name || item.existing.name || '';
+        const finalPosition = item.position || item.existing.position || '';
+        const finalDepartment = item.department || item.existing.department || '';
+        const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
 
-          await tx`
-            UPDATE employee_attendance
-            SET employee_id = ${item.newId}
-            WHERE employee_id = ${item.oldId}
-          `;
+        await sql`
+          INSERT INTO employees (id, name, position, department, checked_in, updated_at)
+          VALUES (${item.newId}, ${finalName}, ${toNullableText(finalPosition)}, ${toNullableText(finalDepartment)}, ${finalChecked}, now())
+          ON CONFLICT (id) DO UPDATE
+          SET name = EXCLUDED.name,
+              position = EXCLUDED.position,
+              department = EXCLUDED.department,
+              checked_in = EXCLUDED.checked_in,
+              updated_at = now()
+        `;
 
-          await tx`DELETE FROM employees WHERE id = ${item.oldId}`;
-          txPromoted += 1;
-        }
+        await sql`
+          UPDATE employee_attendance
+          SET employee_id = ${item.newId}
+          WHERE employee_id = ${item.oldId}
+        `;
+
+        await sql`DELETE FROM employees WHERE id = ${item.oldId}`;
+        promoted += 1;
+      }
 
         if (inserts.length) {
-          const columns = ['id', 'name', 'position', 'department', 'checked_in'];
-          const paramsPerRow = columns.length;
-          const placeholders = inserts
-            .map((_, rowIndex) => {
-              const base = rowIndex * paramsPerRow;
-              const rowPlaceholders = columns.map((__, colIndex) => `$${base + colIndex + 1}`);
-              return `(${rowPlaceholders.join(', ')})`;
-            })
-            .join(', ');
+        const columns = ['id', 'name', 'position', 'department', 'checked_in'];
+        const paramsPerRow = columns.length;
+        const placeholders = inserts
+          .map((_, rowIndex) => {
+            const base = rowIndex * paramsPerRow;
+            const rowPlaceholders = columns.map((__, colIndex) => `$${base + colIndex + 1}`);
+            return `(${rowPlaceholders.join(', ')})`;
+          })
+          .join(', ');
 
-          const query = `
-            INSERT INTO employees (id, name, position, department, checked_in)
-            VALUES ${placeholders}
-            ON CONFLICT (id) DO NOTHING
-            RETURNING id
-          `;
+        const query = `
+          INSERT INTO employees (id, name, position, department, checked_in)
+          VALUES ${placeholders}
+          ON CONFLICT (id) DO NOTHING
+          RETURNING id
+        `;
 
-          const queryParams = inserts.flatMap(e => [
-            e.id,
-            e.name,
-            toNullableText(e.position),
-            toNullableText(e.department),
-            e.checkedIn,
-          ]);
+        const queryParams = inserts.flatMap(e => [
+          e.id,
+          e.name,
+          toNullableText(e.position),
+          toNullableText(e.department),
+          e.checkedIn,
+        ]);
 
-          const insertedRows = await tx(query, queryParams);
-          txInserted = insertedRows.length;
-          txSkippedFromInsert = inserts.length - insertedRows.length;
-        }
-        
-        return {
-          inserted: txInserted,
-          updated: txUpdated,
-          matchedByName: txMatchedByName,
-          promoted: txPromoted,
-          skippedFromInsert: txSkippedFromInsert,
-        };
-      });
-
-            if (transactionSummary) {
-        inserted = transactionSummary.inserted;
-        updated = transactionSummary.updated;
-        matchedByName = transactionSummary.matchedByName;
-        promoted = transactionSummary.promoted;
-        skipped += transactionSummary.skippedFromInsert;
+        const insertedRows = await sql(query, queryParams);
+        inserted = insertedRows.length;
+        skippedFromInsert = inserts.length - insertedRows.length;
       }
+
+      skipped += skippedFromInsert;
 
       const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
       return {
