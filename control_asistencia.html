@@ -123,6 +123,42 @@
       return `tmp-${Date.now()}-${tempIdCounter}`;
     }
 
+    async function parseErrorResponse(response) {
+      if (!response) return 'Error desconocido del servidor.';
+      const statusText = response.status ? ` (HTTP ${response.status})` : '';
+      try {
+        const data = await response.clone().json();
+        if (data && typeof data === 'object') {
+          const parts = [];
+          if (data.error) parts.push(data.error);
+          if (data.detail && data.detail !== data.error) parts.push(data.detail);
+          if (data.hint) parts.push(`Sugerencia: ${data.hint}`);
+          if (data.code) parts.push(`Código: ${data.code}`);
+          if (parts.length) return `${parts.join(' ')}${statusText}`.trim();
+        }
+      } catch (err) {
+        try {
+          const text = await response.clone().text();
+          if (text) return `${text.trim()}${statusText}`;
+        } catch (_) {
+          console.warn('No se pudo leer la respuesta de error del servidor:', err);
+        }
+      }
+      return `La solicitud al servidor falló${statusText}.`;
+    }
+
+    async function fetchServerDebugInfo() {
+      try {
+        const response = await fetch(`${API_BASE_URL}?debug=1`);
+        if (!response.ok) return null;
+        const payload = await response.json();
+        return payload;
+      } catch (error) {
+        console.warn('No se pudo obtener la información de depuración del servidor:', error);
+        return null;
+      }
+    }
+
     function normalizeEmployee(row) {
       const normalized = {};
       Object.entries(row || {}).forEach(([key, value]) => {
@@ -187,14 +223,25 @@
     async function loadEmployeesFromServer() {
       try {
         const response = await fetch(API_BASE_URL);
-        if (!response.ok) throw new Error('No se pudo obtener la lista de empleados.');
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo obtener la lista de empleados.');
+        }
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
           employees = payload.employees.map(mapServerEmployee);
         }
       } catch (error) {
         console.error('Error al cargar empleados desde el servidor:', error);
-        alert('No se pudo cargar la información de empleados guardada en Neon. Revisa la consola para más detalles.');
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudo cargar la información de empleados guardada en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
+        );
       }
       refreshUI();
     }
@@ -206,7 +253,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ employees: newEmployees })
         });
-        if (!response.ok) throw new Error('No se pudo guardar la información en el servidor.');
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo guardar la información en el servidor.');
+        }
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
           employees = payload.employees.map(mapServerEmployee);
@@ -219,7 +269,15 @@
         }
       } catch (error) {
         console.error('Error al guardar empleados en el servidor:', error);
-        alert('No se pudieron guardar los empleados en Neon. Revisa tu conexión y configuración.');
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudieron guardar los empleados en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa tu conexión y configuración.')
+        );
         refreshUI();
       }
     }
@@ -231,7 +289,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, checkedIn })
         });
-        if (!response.ok) throw new Error('Error al actualizar asistencia.');
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'Error al actualizar asistencia.');
+        }
         const payload = await response.json();
         if (payload && payload.employee) {
           const updated = mapServerEmployee(payload.employee);
@@ -243,7 +304,15 @@
         }
       } catch (error) {
         console.error('Error al actualizar asistencia:', error);
-        alert('No se pudo actualizar la asistencia en Neon. Se revertirá el cambio.');
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudo actualizar la asistencia en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Se revertirá el cambio.')
+        );
         const target = employees.find(emp => String(emp.id) === String(id));
         if (target) {
           target.checkedIn = !checkedIn;
