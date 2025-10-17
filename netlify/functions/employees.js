@@ -119,15 +119,20 @@ export async function handler(event) {
         });
       }
 
-      const values = clean.map(e => sql`(${e.id}, ${e.name}, ${e.position}, ${e.department}, ${e.checkedIn})`);
-      const insertedRows = await sql`
-        INSERT INTO employees (id, name, position, department, checked_in)
-        VALUES ${sql(values)}
-        ON CONFLICT (id) DO NOTHING
-        RETURNING id
-      `;
-      const inserted = insertedRows.length;
-      const skipped = clean.length - inserted;
+      let inserted = 0;
+      let skipped = 0;
+
+      if (clean.length) {
+        const values = clean.map(e => sql`(${e.id}, ${e.name}, ${e.position}, ${e.department}, ${e.checkedIn})`);
+        const insertedRows = await sql`
+          INSERT INTO employees (id, name, position, department, checked_in)
+          VALUES ${sql(values)}
+          ON CONFLICT (id) DO NOTHING
+          RETURNING id
+        `;
+        inserted = insertedRows.length;
+        skipped = clean.length - inserted;
+      }
 
       const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
       return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }) };
