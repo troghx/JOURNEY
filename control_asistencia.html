@@ -307,7 +307,6 @@
       applySearchFilter();
       updateReadOnlyBanner();
       updateReport();
-    }
       updateClearButtonState();
     }
 
@@ -321,6 +320,8 @@
       clearAttendanceBtn.classList.toggle('text-rose-300', shouldDisable);
       clearAttendanceBtn.classList.toggle('text-rose-500', !shouldDisable);
       clearAttendanceBtn.setAttribute('aria-disabled', String(shouldDisable));
+    }
+    
     async function loadEmployeesFromServer(targetDate = currentDate) {
       try {
         const dateStr = formatForInput(targetDate);
