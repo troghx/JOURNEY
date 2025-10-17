@@ -26,6 +26,37 @@ function redact(url = '') {
   }
 }
 
+const DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function formatDateKey(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function resolveDateFromQuery(rawDate) {
+  if (!rawDate) {
+    const today = new Date();
+    return { date: today, key: formatDateKey(today) };
+  }
+
+  const match = rawDate.match(DATE_REGEX);
+  if (!match) return null;
+
+  const [, yearStr, monthStr, dayStr] = match;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
+    return null;
+  }
+
+  return { date, key: formatDateKey(date) };
+}
+
 async function ensureTable(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS employees (
@@ -35,6 +66,16 @@ async function ensureTable(sql) {
       department TEXT,
       checked_in BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  
+  await sql`
+    CREATE TABLE IF NOT EXISTS employee_attendance (
+      employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      attendance_date DATE NOT NULL,
+      checked_in BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (employee_id, attendance_date)
     )
   `;
 }
@@ -53,6 +94,7 @@ function mapRow(r) {
     position: r.position ?? '',
     department: r.department ?? '',
     checkedIn: !!r.checked_in,
+    attendanceRecorded: !!(r.attendance_recorded ?? false),
   };
 }
 
@@ -96,15 +138,47 @@ export async function handler(event) {
     await ensureTable(sql);
 
     if (method === 'GET') {
-      const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
-      return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow) }) };
+      const resolved = resolveDateFromQuery((qs.date || '').trim());
+      if (!resolved) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El parámetro de fecha es inválido. Usa el formato YYYY-MM-DD.' }),
+        };
+      }
+
+      const rows = await sql`
+        SELECT
+          e.id,
+          e.name,
+          e.position,
+          e.department,
+          COALESCE(a.checked_in, FALSE) AS checked_in,
+          (a.employee_id IS NOT NULL) AS attendance_recorded
+        FROM employees e
+        LEFT JOIN employee_attendance a
+          ON a.employee_id = e.id AND a.attendance_date = ${resolved.key}
+        ORDER BY e.name ASC
+      `;
+
+      const hasAttendanceRecords = rows.some(row => row.attendance_recorded);
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          employees: rows.map(mapRow),
+          hasAttendanceRecords,
+          date: resolved.key,
+        }),
+      };
     }
 
     if (method === 'POST') {
       const body = JSON.parse(event.body || '{}');
       const incoming = Array.isArray(body.employees) ? body.employees : [];
       if (!incoming.length) {
-        const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
+        const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
         return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0 }) };
       }
 
@@ -157,7 +231,7 @@ export async function handler(event) {
         skipped = clean.length - inserted;
       }
 
-      const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
+      const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
       return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }) };
     }
 
@@ -165,21 +239,61 @@ export async function handler(event) {
       const body = JSON.parse(event.body || '{}');
       const id = String(body.id ?? '').trim();
       const checkedIn = body.checkedIn;
+      const dateParam = String(body.date ?? '').trim();
 
-      if (!id || typeof checkedIn !== 'boolean') {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Campos requeridos: id (string) y checkedIn (boolean).' }) };
+      if (!id || typeof checkedIn !== 'boolean' || !dateParam) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Campos requeridos: id (string), checkedIn (boolean) y date (YYYY-MM-DD).' }),
+        };
+      }
+      const resolvedDate = resolveDateFromQuery(dateParam);
+      if (!resolvedDate) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El campo date es inválido. Usa el formato YYYY-MM-DD.' }),
+        };
       }
 
-      const updated = await sql`
+      const existing = await sql`SELECT id FROM employees WHERE id = ${id}`;
+      if (!existing.length) {
+        return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
+      }
+
+      await sql`
+        INSERT INTO employee_attendance (employee_id, attendance_date, checked_in, updated_at)
+        VALUES (${id}, ${resolvedDate.key}, ${checkedIn}, now())
+        ON CONFLICT (employee_id, attendance_date)
+        DO UPDATE SET checked_in = EXCLUDED.checked_in, updated_at = now()
+      `;
+
+      await sql`
         UPDATE employees
         SET checked_in = ${checkedIn}, updated_at = now()
         WHERE id = ${id}
-        RETURNING id, name, position, department, checked_in
       `;
 
-      if (!updated.length) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
+      const rows = await sql`
+        SELECT
+          e.id,
+          e.name,
+          e.position,
+          e.department,
+          COALESCE(a.checked_in, FALSE) AS checked_in,
+          TRUE AS attendance_recorded
+        FROM employees e
+        LEFT JOIN employee_attendance a
+          ON a.employee_id = e.id AND a.attendance_date = ${resolvedDate.key}
+        WHERE e.id = ${id}
+      `;
 
-      return { statusCode: 200, headers, body: JSON.stringify({ employee: mapRow(updated[0]) }) };
+      if (!rows.length) {
+        return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ employee: mapRow(rows[0]) }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
