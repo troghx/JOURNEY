@@ -674,9 +674,6 @@
       updateAttendanceTable();
     }
 
-    document.addEventListener('click', (e) => {
-      const mark = e.target.closest('.checkmark');
-      if (!mark || mark.disabled || isReadOnlyDate) return;
     function hideClearConfirmation() {
       if (clearConfirmationCard) clearConfirmationCard.classList.add('hidden');
     }
@@ -737,6 +734,10 @@
       }
     }
 
+    document.addEventListener('click', (e) => {
+      const mark = e.target.closest('.checkmark');
+      if (!mark || mark.disabled || isReadOnlyDate) return;
+
       const employeeId = mark.getAttribute('data-id');
       const emp = employees.find(x => String(x.id) === employeeId);
       if (!emp) return;
@@ -756,10 +757,8 @@
       recalculateReadOnlyState();
       updatePresentCount();
       updateClearButtonState();
-      updateEmployeeCheckStatus(emp.id, isActive);
-      updateReport();
-
       updateEmployeeCheckStatus(emp.id, isActive, previousRecorded);
+      updateReport();
     });
 
     function exportCSV() {
