@@ -39,7 +39,12 @@ async function ensureTable(sql) {
   `;
 }
 
-const headers = { 'Content-Type': 'application/json' };
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
+};
 
 function mapRow(r) {
   return {
@@ -77,15 +82,14 @@ export async function handler(event) {
     // Resolve DB at runtime
     const dbUrl = resolveDatabaseUrl();
     if (!looksLikePostgres(dbUrl)) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          error: 'DATABASE_URL inválida o ausente',
-          received: dbUrl || null,
-          hint: 'En Netlify, define NEON_DATABASE_URL con la URL completa que inicia con postgresql:// (o usa NETLIFY_DATABASE_URL_UNPOOLED).',
-        }),
+      const errorBody = {
+        error: 'DATABASE_URL inválida o ausente',
+        received: dbUrl || null,
+        hint:
+          'En Netlify, define NEON_DATABASE_URL con la URL completa que inicia con postgresql:// (o usa NETLIFY_DATABASE_URL_UNPOOLED).',
       };
+      console.error('[employees] Configuración de base de datos inválida:', errorBody);
+      return { statusCode: 500, headers, body: JSON.stringify(errorBody) };
     }
 
     const sql = neon(dbUrl);
@@ -161,7 +165,15 @@ export async function handler(event) {
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
   } catch (err) {
-    console.error(err);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error interno del servidor', detail: String(err?.message || err) }) };
+    console.error('[employees] Error inesperado:', err);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: 'Error interno del servidor',
+        detail: String(err?.message || err),
+        code: err?.code ?? null,
+      }),
+    };
   }
 }
