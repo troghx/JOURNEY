@@ -127,15 +127,32 @@ export async function handler(event) {
       let skipped = 0;
 
       if (clean.length) {
-        const values = clean.map(e =>
-          sql`(${e.id}, ${e.name}, ${e.position}, ${e.department}, ${e.checkedIn})`
-        );
-        const insertedRows = await sql`
+        const columns = ['id', 'name', 'position', 'department', 'checked_in'];
+        const paramsPerRow = columns.length;
+        const placeholders = clean
+          .map((_, rowIndex) => {
+            const base = rowIndex * paramsPerRow;
+            const rowPlaceholders = columns.map((__, colIndex) => `$${base + colIndex + 1}`);
+            return `(${rowPlaceholders.join(', ')})`;
+          })
+          .join(', ');
+
+        const query = `
           INSERT INTO employees (id, name, position, department, checked_in)
-          VALUES ${sql.join(values, sql`, `)}
+          VALUES ${placeholders}
           ON CONFLICT (id) DO NOTHING
           RETURNING id
         `;
+    
+        const queryParams = clean.flatMap(e => [
+          e.id,
+          e.name,
+          e.position,
+          e.department,
+          e.checkedIn,
+        ]);
+
+        const insertedRows = await sql(query, queryParams);
         inserted = insertedRows.length;
         skipped = clean.length - inserted;
       }
