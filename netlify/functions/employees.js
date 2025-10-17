@@ -337,7 +337,13 @@ export async function handler(event) {
       let matchedByName = 0;
       let promoted = 0;
 
-      await sql.transaction(async (tx) => {
+      const transactionSummary = await sql.begin(async (tx) => {
+        let txInserted = 0;
+        let txUpdated = 0;
+        let txMatchedByName = 0;
+        let txPromoted = 0;
+        let txSkippedFromInsert = 0;
+
         for (const item of updatesById) {
           const finalName = item.name || item.existing.name || '';
           const finalPosition = item.position || item.existing.position || '';
@@ -352,7 +358,7 @@ export async function handler(event) {
                 updated_at = now()
             WHERE id = ${item.id}
           `;
-          updated += 1;
+          txUpdated += 1;
         }
 
         for (const item of updatesByName) {
@@ -369,7 +375,7 @@ export async function handler(event) {
                 updated_at = now()
             WHERE id = ${item.id}
           `;
-          matchedByName += 1;
+          txMatchedByName += 1;
         }
 
         for (const item of promotions) {
@@ -396,7 +402,7 @@ export async function handler(event) {
           `;
 
           await tx`DELETE FROM employees WHERE id = ${item.oldId}`;
-          promoted += 1;
+          txPromoted += 1;
         }
 
         if (inserts.length) {
@@ -426,10 +432,26 @@ export async function handler(event) {
           ]);
 
           const insertedRows = await tx(query, queryParams);
-          inserted = insertedRows.length;
-          skipped += inserts.length - insertedRows.length;
+          txInserted = insertedRows.length;
+          txSkippedFromInsert = inserts.length - insertedRows.length;
         }
+        
+        return {
+          inserted: txInserted,
+          updated: txUpdated,
+          matchedByName: txMatchedByName,
+          promoted: txPromoted,
+          skippedFromInsert: txSkippedFromInsert,
+        };
       });
+
+            if (transactionSummary) {
+        inserted = transactionSummary.inserted;
+        updated = transactionSummary.updated;
+        matchedByName = transactionSummary.matchedByName;
+        promoted = transactionSummary.promoted;
+        skipped += transactionSummary.skippedFromInsert;
+      }
 
       const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
       return {
