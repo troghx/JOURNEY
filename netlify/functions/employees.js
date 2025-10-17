@@ -127,10 +127,12 @@ export async function handler(event) {
       let skipped = 0;
 
       if (clean.length) {
-        const values = clean.map(e => sql`(${e.id}, ${e.name}, ${e.position}, ${e.department}, ${e.checkedIn})`);
+        const values = clean.map(e =>
+          sql`(${e.id}, ${e.name}, ${e.position}, ${e.department}, ${e.checkedIn})`
+        );
         const insertedRows = await sql`
           INSERT INTO employees (id, name, position, department, checked_in)
-          VALUES ${sql(values)}
+          VALUES ${sql.join(values, sql`, `)}
           ON CONFLICT (id) DO NOTHING
           RETURNING id
         `;
