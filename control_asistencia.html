@@ -136,11 +136,31 @@
       </section>
     </main>
 
-    <!-- Floating Action Button (Export) -->
-    <button id="export-btn" title="Descargar asistencia (CSV)"
-      class="fixed bottom-6 right-6 bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
-      <i data-feather="download"></i>
-    </button>
+    <!-- Floating Action Buttons -->
+    <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
+      <div id="clear-confirmation" class="hidden w-72 bg-white border border-gray-100 shadow-lg rounded-lg p-4 text-sm text-gray-700">
+        <div class="font-medium text-gray-800 mb-3">¿Limpiar asistencias de <span id="clear-confirmation-date"></span>?</div>
+        <p class="text-xs text-gray-500 mb-3">Esta acción eliminará todos los registros de asistencia del día seleccionado.</p>
+        <div class="flex justify-end space-x-2 text-sm">
+          <button id="cancel-clear-btn" class="px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors">Cancelar</button>
+          <button id="confirm-clear-btn" class="px-3 py-1.5 rounded bg-rose-500 text-white hover:bg-rose-600 transition-colors">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="clear-toast" class="hidden w-72 bg-emerald-500 text-white text-sm rounded-lg shadow-lg px-4 py-3">
+        Asistencias limpiadas correctamente.
+      </div>
+
+      <button id="clear-attendance-btn" title="Limpiar asistencias del día" aria-label="Limpiar asistencias del día"
+        class="bg-white text-rose-500 border border-rose-100 p-4 rounded-full shadow-lg hover:bg-rose-50 transition-colors flex items-center justify-center">
+        <i data-feather="trash-2"></i>
+      </button>
+
+      <button id="export-btn" title="Descargar asistencia (CSV)"
+        class="bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
+        <i data-feather="download"></i>
+      </button>
+    </div>
   </div>
 
   <script>
@@ -157,7 +177,13 @@
     const searchInput = document.getElementById('search-input');
     const readOnlyBanner = document.getElementById('read-only-banner');
     const attendanceTableBody = document.getElementById('attendance-table-body');
-
+    const clearAttendanceBtn = document.getElementById('clear-attendance-btn');
+    const clearConfirmationCard = document.getElementById('clear-confirmation');
+    const clearConfirmationDate = document.getElementById('clear-confirmation-date');
+    const cancelClearBtn = document.getElementById('cancel-clear-btn');
+    const confirmClearBtn = document.getElementById('confirm-clear-btn');
+    const clearToast = document.getElementById('clear-toast');
+    let clearToastTimeout = null;
     function generateTempId() {
       tempIdCounter += 1;
       return `tmp-${Date.now()}-${tempIdCounter}`;
@@ -282,7 +308,19 @@
       updateReadOnlyBanner();
       updateReport();
     }
+      updateClearButtonState();
+    }
 
+    function updateClearButtonState() {
+      if (!clearAttendanceBtn) return;
+      const shouldDisable = !employees.length || !attendanceHasRecords;
+      clearAttendanceBtn.disabled = shouldDisable;
+      clearAttendanceBtn.classList.toggle('opacity-50', shouldDisable);
+      clearAttendanceBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+      clearAttendanceBtn.classList.toggle('hover:bg-rose-50', !shouldDisable);
+      clearAttendanceBtn.classList.toggle('text-rose-300', shouldDisable);
+      clearAttendanceBtn.classList.toggle('text-rose-500', !shouldDisable);
+      clearAttendanceBtn.setAttribute('aria-disabled', String(shouldDisable));
     async function loadEmployeesFromServer(targetDate = currentDate) {
       try {
         const dateStr = formatForInput(targetDate);
@@ -638,6 +676,65 @@
     document.addEventListener('click', (e) => {
       const mark = e.target.closest('.checkmark');
       if (!mark || mark.disabled || isReadOnlyDate) return;
+    function hideClearConfirmation() {
+      if (clearConfirmationCard) clearConfirmationCard.classList.add('hidden');
+    }
+
+    function showClearConfirmation() {
+      if (!clearConfirmationCard) return;
+      if (clearConfirmationDate) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        clearConfirmationDate.textContent = currentDate.toLocaleDateString('es-MX', options);
+      }
+      hideClearToast();
+      clearConfirmationCard.classList.remove('hidden');
+    }
+
+    function hideClearToast() {
+      if (clearToastTimeout) {
+        clearTimeout(clearToastTimeout);
+        clearToastTimeout = null;
+      }
+      if (clearToast) clearToast.classList.add('hidden');
+    }
+
+    function showClearToast(message) {
+      if (!clearToast) return;
+      clearToast.textContent = message;
+      clearToast.classList.remove('hidden');
+      if (clearToastTimeout) clearTimeout(clearToastTimeout);
+      clearToastTimeout = setTimeout(() => {
+        if (clearToast) clearToast.classList.add('hidden');
+        clearToastTimeout = null;
+      }, 3000);
+    }
+
+    async function clearAttendanceForCurrentDate() {
+      const dateStr = formatForInput(currentDate);
+      try {
+        const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo limpiar la asistencia.');
+        }
+        employees = employees.map(emp => ({
+          ...emp,
+          checkedIn: false,
+          attendanceRecorded: false,
+        }));
+        attendanceHasRecords = false;
+        recalculateReadOnlyState();
+        refreshUI();
+        showClearToast('Asistencias del día eliminadas.');
+      } catch (error) {
+        console.error('Error al limpiar asistencia:', error);
+        alert(
+          'No se pudo limpiar la asistencia en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
+        );
+      }
+    }
 
       const employeeId = mark.getAttribute('data-id');
       const emp = employees.find(x => String(x.id) === employeeId);
@@ -657,6 +754,7 @@
       attendanceHasRecords = true;
       recalculateReadOnlyState();
       updatePresentCount();
+      updateClearButtonState();
       updateEmployeeCheckStatus(emp.id, isActive);
       updateReport();
 
@@ -725,6 +823,37 @@
         }
       };
       reader.readAsArrayBuffer(file);
+    });
+
+    if (clearAttendanceBtn) {
+      clearAttendanceBtn.addEventListener('click', () => {
+        if (clearAttendanceBtn.disabled) return;
+        showClearConfirmation();
+      });
+    }
+
+    if (cancelClearBtn) {
+      cancelClearBtn.addEventListener('click', hideClearConfirmation);
+    }
+
+    if (confirmClearBtn) {
+      confirmClearBtn.addEventListener('click', async () => {
+        hideClearConfirmation();
+        await clearAttendanceForCurrentDate();
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        hideClearConfirmation();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!clearConfirmationCard || clearConfirmationCard.classList.contains('hidden')) return;
+      if (clearConfirmationCard.contains(event.target)) return;
+      if (event.target === clearAttendanceBtn) return;
+      hideClearConfirmation();
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
