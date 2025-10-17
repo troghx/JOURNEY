@@ -175,7 +175,17 @@ export async function handler(event) {
     }
 
     if (method === 'POST') {
-      const body = JSON.parse(event.body || '{}');
+      let body;
+      try {
+        body = event.body ? JSON.parse(event.body) : {};
+      } catch (error) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El cuerpo de la solicitud no contiene JSON válido.' }),
+        };
+      }
+
       const incoming = Array.isArray(body.employees) ? body.employees : [];
       if (!incoming.length) {
         const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
@@ -283,15 +293,22 @@ export async function handler(event) {
         `;
       }
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ cleared: deletedRows.length, date: resolvedDate.key }),
-      };
+      const rowsAfterDelete = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+      return { statusCode: 200, headers, body: JSON.stringify({ employees: rowsAfterDelete.map(mapRow), deleted: deletedRows.length }) };
     }
 
     if (method === 'PATCH') {
-      const body = JSON.parse(event.body || '{}');
+      let body;
+      try {
+        body = event.body ? JSON.parse(event.body) : {};
+      } catch (error) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'El cuerpo de la solicitud no contiene JSON válido.' }),
+        };
+      }
+
       const id = String(body.id ?? '').trim();
       const checkedIn = body.checkedIn;
       const dateParam = String(body.date ?? '').trim();
