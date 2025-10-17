@@ -1,34 +1,32 @@
 import { neon, neonConfig } from '@neondatabase/serverless';
-
 neonConfig.fetchConnectionCache = true;
 
-// --- Resolve DB URL from common env names ---
-const DATABASE_URL =
-  process.env.NEON_DATABASE_URL ||
-  process.env.NETLIFY_DATABASE_URL_UNPOOLED || // Neon integration (direct)
-  process.env.NETLIFY_DATABASE_URL ||          // Neon integration (pooler)
-  process.env.DATABASE_URL;                    // fallback
+// --- Helper: resolve DB URL on each request (no module-load crash) ---
+function resolveDatabaseUrl() {
+  const url =
+    process.env.NEON_DATABASE_URL ||
+    process.env.NETLIFY_DATABASE_URL_UNPOOLED ||
+    process.env.NETLIFY_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    '';
+
+  return String(url).trim();
+}
+
+function looksLikePostgres(url) {
+  return /^postgres(ql)?:\/\//i.test(url);
+}
 
 function redact(url = '') {
   try {
     const u = new URL(url);
-    // keep protocol + host + db; hide user/pass
     return `${u.protocol}//***:***@${u.hostname}${u.port ? ':' + u.port : ''}${u.pathname}${u.search}`;
   } catch {
     return 'invalid-url';
   }
 }
 
-let sql;
-if (!DATABASE_URL) {
-  console.error('DATABASE_URL not set. Define NEON_DATABASE_URL or NETLIFY_DATABASE_URL(_UNPOOLED).');
-} else {
-  sql = neon(DATABASE_URL);
-}
-
-let tableReady = false;
-async function ensureTable() {
-  if (tableReady) return;
+async function ensureTable(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS employees (
       id TEXT PRIMARY KEY,
@@ -39,12 +37,9 @@ async function ensureTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
-  tableReady = true;
 }
 
-const headers = {
-  'Content-Type': 'application/json',
-};
+const headers = { 'Content-Type': 'application/json' };
 
 function mapRow(r) {
   return {
@@ -61,48 +56,44 @@ export async function handler(event) {
     const method = event.httpMethod;
     const qs = event.queryStringParameters || {};
 
-    if (method === 'OPTIONS') {
-      return { statusCode: 200, headers };
-    }
+    if (method === 'OPTIONS') return { statusCode: 200, headers };
 
-    // Health/debug endpoints (no DB required for health)
-    if (qs.health === '1') {
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
+    // Health & debug that do NOT require DB
+    if (qs.health === '1') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     if (qs.debug === '1') {
+      const raw = resolveDatabaseUrl();
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           method,
-          dbUrlResolved: redact(DATABASE_URL),
-          hasSqlClient: Boolean(sql),
+          dbUrlResolved: redact(raw),
+          validUrl: looksLikePostgres(raw),
           envKeysPresent: Object.keys(process.env).filter(k => /DATABASE_URL/i.test(k)).sort(),
         }),
       };
     }
 
-    if (!sql) {
+    // Resolve DB at runtime
+    const dbUrl = resolveDatabaseUrl();
+    if (!looksLikePostgres(dbUrl)) {
       return {
         statusCode: 500,
         headers,
         body: JSON.stringify({
-          error: 'DATABASE_URL no configurada en el entorno',
-          hint: 'Define NEON_DATABASE_URL o NETLIFY_DATABASE_URL(_UNPOOLED) en Netlify y re-deploy.',
-          envKeysPresent: Object.keys(process.env).filter(k => /DATABASE_URL/i.test(k)).sort(),
+          error: 'DATABASE_URL inválida o ausente',
+          received: dbUrl || null,
+          hint: 'En Netlify, define NEON_DATABASE_URL con la URL completa que inicia con postgresql:// (o usa NETLIFY_DATABASE_URL_UNPOOLED).',
         }),
       };
     }
 
-    await ensureTable();
+    const sql = neon(dbUrl);
+    await ensureTable(sql);
 
     if (method === 'GET') {
       const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ employees: rows.map(mapRow) }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow) }) };
     }
 
     if (method === 'POST') {
@@ -139,11 +130,7 @@ export async function handler(event) {
       const skipped = clean.length - inserted;
 
       const rows = await sql`SELECT id, name, position, department, checked_in FROM employees ORDER BY name ASC`;
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted, skipped }) };
     }
 
     if (method === 'PATCH') {
@@ -162,27 +149,14 @@ export async function handler(event) {
         RETURNING id, name, position, department, checked_in
       `;
 
-      if (!updated.length) {
-        return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
-      }
+      if (!updated.length) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ employee: mapRow(updated[0]) }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ employee: mapRow(updated[0]) }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({
-        error: 'Error interno del servidor',
-        detail: String(err?.message || err),
-      }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error interno del servidor', detail: String(err?.message || err) }) };
   }
 }
