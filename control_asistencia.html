@@ -13,7 +13,8 @@
 
     <!-- SheetJS (Excel parsing) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -76,17 +77,6 @@
           <i data-feather="search" class="absolute right-3 top-3 text-gray-400"></i>
         </div>
 
-        <div class="flex space-x-2 mt-4 overflow-x-auto pb-2">
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap btn-pill-active" data-department="ALL">Todos</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="HABITACIONES">Habitaciones</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ALIMENTOS Y BEBIDAS">Alimentos y Bebidas</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="MANTENIMIENTO">Mantenimiento</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ADMINISTRATIVO">Administrativo</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="ANIMACION">Animación</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="BELL BOYS">Bell Boys</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="BARES">Bares</button>
-          <button class="filter-btn px-3 py-1 text-sm rounded-full bg-gray-100 whitespace-nowrap" data-department="RESTAURANTE">Restaurante</button>
-        </div>
       </div>
 
       <!-- Stats -->
@@ -101,8 +91,49 @@
         </div>
       </div>
 
+      <div id="read-only-banner" class="hidden mb-6 p-4 rounded-lg border border-gray-200 bg-gray-100 text-sm text-gray-600"></div>
+
       <!-- Employee List -->
       <div id="employee-list" class="space-y-3"></div>
+      
+      <!-- Workforce Report -->
+      <section class="mt-10 space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-700">Reporte de fuerza de trabajo</h2>
+          <p class="text-sm text-gray-500">Resumen por departamento de la asistencia del día seleccionado.</p>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm font-medium text-gray-600 mb-3">Asistieron por departamento</h3>
+            <canvas id="present-chart" height="200"></canvas>
+          </div>
+          <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-sm font-medium text-gray-600 mb-3">No asistieron por departamento</h3>
+            <canvas id="absent-chart" height="200"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100">
+            <h3 class="text-sm font-medium text-gray-600">Detalle por empleado</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100">
+              <thead class="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <tr>
+                  <th scope="col" class="px-4 py-3">#</th>
+                  <th scope="col" class="px-4 py-3">Nombre</th>
+                  <th scope="col" class="px-4 py-3">Departamento</th>
+                  <th scope="col" class="px-4 py-3">Puesto</th>
+                  <th scope="col" class="px-4 py-3 text-center">Asistencia</th>
+                </tr>
+              </thead>
+              <tbody id="attendance-table-body" class="bg-white divide-y divide-gray-100 text-sm text-gray-600"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- Floating Action Button (Export) -->
@@ -113,10 +144,19 @@
   </div>
 
   <script>
-    // ======= Datos de empleados (se cargan desde archivo) =======
     const API_BASE_URL = '/.netlify/functions/employees';
     let employees = [];
     let tempIdCounter = 0;
+    let currentDate = new Date();
+    let attendanceHasRecords = false;
+    let isReadOnlyDate = false;
+    let presentChartInstance = null;
+    let absentChartInstance = null;
+
+    const employeeList = document.getElementById('employee-list');
+    const searchInput = document.getElementById('search-input');
+    const readOnlyBanner = document.getElementById('read-only-banner');
+    const attendanceTableBody = document.getElementById('attendance-table-body');
 
     function generateTempId() {
       tempIdCounter += 1;
@@ -151,8 +191,7 @@
       try {
         const response = await fetch(`${API_BASE_URL}?debug=1`);
         if (!response.ok) return null;
-        const payload = await response.json();
-        return payload;
+        return await response.json();
       } catch (error) {
         console.warn('No se pudo obtener la información de depuración del servidor:', error);
         return null;
@@ -199,7 +238,8 @@
         name: toCleanString(nameValue),
         position: toCleanString(positionValue),
         department: toCleanString(departmentValue),
-        checkedIn: parseBoolean(presentValue)
+        checkedIn: parseBoolean(presentValue),
+        attendanceRecorded: false,
       };
     }
 
@@ -209,20 +249,44 @@
         name: emp.name || '',
         position: emp.position || '',
         department: emp.department || '',
-        checkedIn: Boolean(emp.checkedIn)
+        checkedIn: Boolean(emp.checkedIn),
+        attendanceRecorded: Boolean(emp.attendanceRecorded),
       };
+    }
+
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function isDateBeforeToday(date) {
+      const today = startOfDay(new Date());
+      return startOfDay(date) < today;
+    }
+
+    function formatForInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function recalculateReadOnlyState() {
+      isReadOnlyDate = isDateBeforeToday(currentDate) && !attendanceHasRecords;
     }
 
     function refreshUI() {
       renderEmployees();
       updateTotalCount();
       updatePresentCount();
-      filterEmployees();
+      applySearchFilter();
+      updateReadOnlyBanner();
+      updateReport();
     }
 
-    async function loadEmployeesFromServer() {
+    async function loadEmployeesFromServer(targetDate = currentDate) {
       try {
-        const response = await fetch(API_BASE_URL);
+        const dateStr = formatForInput(targetDate);
+        const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`);
         if (!response.ok) {
           const message = await parseErrorResponse(response);
           throw new Error(message || 'No se pudo obtener la lista de empleados.');
@@ -230,6 +294,13 @@
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
           employees = payload.employees.map(mapServerEmployee);
+          } else {
+          employees = [];
+        }
+        if (typeof payload.hasAttendanceRecords === 'boolean') {
+          attendanceHasRecords = payload.hasAttendanceRecords;
+        } else {
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
         }
       } catch (error) {
         console.error('Error al cargar empleados desde el servidor:', error);
@@ -242,8 +313,10 @@
             'Detalle: ' +
             (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
         );
+      } finally {
+        recalculateReadOnlyState();
+        refreshUI();
       }
-      refreshUI();
     }
 
     async function saveEmployeesToServer(newEmployees) {
@@ -260,6 +333,8 @@
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
           employees = payload.employees.map(mapServerEmployee);
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+          recalculateReadOnlyState();
           refreshUI();
         }
         if (typeof payload.inserted === 'number' || typeof payload.skipped === 'number') {
@@ -282,12 +357,12 @@
       }
     }
 
-    async function updateEmployeeCheckStatus(id, checkedIn) {
+    async function updateEmployeeCheckStatus(id, checkedIn, previousRecorded = false) {
       try {
         const response = await fetch(API_BASE_URL, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, checkedIn })
+          body: JSON.stringify({ id, checkedIn, date: formatForInput(currentDate) })
         });
         if (!response.ok) {
           const message = await parseErrorResponse(response);
@@ -299,6 +374,8 @@
           const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
           if (index !== -1) {
             employees[index] = updated;
+            attendanceHasRecords = true;
+            recalculateReadOnlyState();
             refreshUI();
           }
         }
@@ -316,13 +393,16 @@
         const target = employees.find(emp => String(emp.id) === String(id));
         if (target) {
           target.checkedIn = !checkedIn;
-          refreshUI();
+          target.attendanceRecorded = previousRecorded;
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+          recalculateReadOnlyState();
+          updateReadOnlyBanner();
+          updatePresentCount();
+          updateReport();
         }
       }
     }
 
-    // ======= Fecha =======
-    let currentDate = new Date();
     const dateSelector = document.getElementById('date-selector');
     const datePickerModal = document.getElementById('date-picker-modal');
     const dateInput = document.getElementById('date-input');
@@ -333,35 +413,24 @@
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
       document.getElementById('current-date').textContent = currentDate.toLocaleDateString('es-MX', options);
     }
-    updateDateDisplay();
-
-      function formatForInput(date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
 
     dateSelector.addEventListener('click', () => {
       dateInput.value = formatForInput(currentDate);
       datePickerModal.classList.remove('hidden');
     });
     cancelDate.addEventListener('click', () => datePickerModal.classList.add('hidden'));
-    confirmDate.addEventListener('click', () => {
+    confirmDate.addEventListener('click', async () => {
       if (dateInput.value) {
         const [year, month, day] = dateInput.value.split('-').map(Number);
         currentDate = new Date(year, month - 1, day);
         updateDateDisplay();
+        await loadEmployeesFromServer(currentDate);
       }
       datePickerModal.classList.add('hidden');
     });
-    // Cerrar modal al hacer click fuera del cuadro
     datePickerModal.addEventListener('click', (e) => {
       if (e.target === datePickerModal) datePickerModal.classList.add('hidden');
     });
-
-    // ======= Renderizado de empleados =======
-    const employeeList = document.getElementById('employee-list');
 
     function renderEmployees() {
       employeeList.innerHTML = '';
@@ -377,8 +446,11 @@
         const isChecked = Boolean(emp.checkedIn);
 
         card.className = 'employee-card bg-white rounded-lg shadow p-4 flex justify-between items-center';
-        card.dataset.dept = (emp.department || '').toUpperCase();
         card.dataset.name = (emp.name || '').toLowerCase();
+
+        if (isReadOnlyDate) {
+          card.classList.add('opacity-60');
+        }
 
         nameEl.className = 'font-bold text-gray-800';
         nameEl.textContent = emp.name || 'Empleado sin nombre';
@@ -394,7 +466,14 @@
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
 
-        checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center cursor-pointer';
+        checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors';
+        if (isReadOnlyDate) {
+          checkButton.classList.add('opacity-60', 'cursor-not-allowed');
+          checkButton.disabled = true;
+          checkButton.setAttribute('aria-disabled', 'true');
+        } else {
+          checkButton.classList.add('cursor-pointer');
+        }
         if (isChecked) checkButton.classList.add('active');
         checkButton.dataset.id = String(emp.id);
         checkButton.setAttribute('aria-pressed', String(isChecked));
@@ -409,65 +488,162 @@
         employeeList.appendChild(card);
       });
 
-        if (!employees.length) {
+      if (!employees.length) {
         const emptyState = document.createElement('div');
         emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
         emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
         employeeList.appendChild(emptyState);
       }
 
-      // Reemplaza íconos feather después de inyectar las tarjetas
       if (window.feather && typeof feather.replace === 'function') {
         feather.replace();
       }
     }
 
-    // ======= Filtros y búsqueda =======
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    let activeFilter = 'ALL';
-
-    filterButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        // Estado visual
-        filterButtons.forEach(b => b.classList.remove('btn-pill-active'));
-        btn.classList.add('btn-pill-active');
-
-        activeFilter = (btn.dataset.department || 'ALL').toUpperCase();
-        filterEmployees();
-      });
-    });
-
-    const searchInput = document.getElementById('search-input');
-    searchInput.addEventListener('input', filterEmployees);
-
-    function filterEmployees() {
+    function applySearchFilter() {
       const searchTerm = (searchInput.value || '').toLowerCase().trim();
-      const cards = document.querySelectorAll('.employee-card');
+      const cards = employeeList.querySelectorAll('.employee-card');
       cards.forEach(card => {
         const matchesName = card.dataset.name.includes(searchTerm);
-        const matchesDept = activeFilter === 'ALL' || card.dataset.dept === activeFilter;
-        card.style.display = (matchesName && matchesDept) ? 'flex' : 'none';
+        card.style.display = matchesName ? 'flex' : 'none';
       });
     }
 
-    // ======= Asistencia (check-in) =======
+    searchInput.addEventListener('input', applySearchFilter);
+
     function updatePresentCount() {
       const presentCount = employees.filter(e => e.checkedIn).length;
       document.getElementById('present-count').textContent = presentCount;
     }
+    
     function updateTotalCount() {
       document.getElementById('total-count').textContent = employees.length;
     }
 
+    function updateReadOnlyBanner() {
+      if (isReadOnlyDate) {
+        readOnlyBanner.textContent = 'Este día no cuenta con registros de asistencia previos, por lo que la captura está deshabilitada.';
+        readOnlyBanner.classList.remove('hidden');
+      } else {
+        readOnlyBanner.classList.add('hidden');
+      }
+    }
+
+    const chartPalette = ['#10B981', '#F59E0B', '#3B82F6', '#F87171', '#6366F1', '#14B8A6', '#F97316', '#8B5CF6', '#06B6D4'];
+
+    function buildDepartmentSummary() {
+      const summary = new Map();
+      employees.forEach(emp => {
+        const department = emp.department || 'Sin departamento';
+        if (!summary.has(department)) {
+          summary.set(department, { present: 0, absent: 0 });
+        }
+        const record = summary.get(department);
+        if (emp.checkedIn) record.present += 1;
+        else record.absent += 1;
+      });
+      return Array.from(summary.entries()).map(([department, counts]) => ({ department, ...counts }));
+    }
+
+    function updatePieChart(instance, canvasId, labels, data, label) {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return null;
+
+      const backgroundColor = labels.map((_, index) => chartPalette[index % chartPalette.length]);
+
+      if (!instance) {
+        return new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels,
+            datasets: [
+              {
+                label,
+                data,
+                backgroundColor,
+                borderWidth: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#4B5563' },
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context) => `${context.label}: ${context.formattedValue}`,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      instance.data.labels = labels;
+      instance.data.datasets[0].data = data;
+      instance.data.datasets[0].backgroundColor = backgroundColor;
+      instance.update();
+      return instance;
+    }
+
+    function updateAttendanceTable() {
+      attendanceTableBody.innerHTML = '';
+
+      if (!employees.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.className = 'px-4 py-4 text-center text-gray-500';
+        cell.textContent = 'No hay registros para mostrar.';
+        row.appendChild(cell);
+        attendanceTableBody.appendChild(row);
+        return;
+      }
+
+      employees.forEach((emp, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        const statusIcon = emp.checkedIn
+          ? '<span class="inline-flex items-center text-emerald-600 font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 0 1.42l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.42l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" clip-rule="evenodd" /></svg><span class="ml-2">Presente</span></span>'
+          : '<span class="inline-flex items-center text-rose-500 font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 0 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd" /></svg><span class="ml-2">Ausente</span></span>';
+
+        row.innerHTML = `
+          <td class="px-4 py-3 whitespace-nowrap text-gray-500">${index + 1}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-gray-700">${emp.name || '—'}</td>
+          <td class="px-4 py-3 whitespace-nowrap">${emp.department || '—'}</td>
+          <td class="px-4 py-3 whitespace-nowrap">${emp.position || '—'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-center">${statusIcon}</td>
+        `;
+
+        attendanceTableBody.appendChild(row);
+      });
+    }
+
+    function updateReport() {
+      const summary = buildDepartmentSummary();
+      const labels = summary.map(item => item.department);
+      const presentData = summary.map(item => item.present);
+      const absentData = summary.map(item => item.absent);
+
+      presentChartInstance = updatePieChart(presentChartInstance, 'present-chart', labels, presentData, 'Presentes');
+      absentChartInstance = updatePieChart(absentChartInstance, 'absent-chart', labels, absentData, 'Ausentes');
+
+      updateAttendanceTable();
+    }
+
     document.addEventListener('click', (e) => {
       const mark = e.target.closest('.checkmark');
-      if (!mark) return;
+      if (!mark || mark.disabled || isReadOnlyDate) return;
 
       const employeeId = mark.getAttribute('data-id');
       const emp = employees.find(x => String(x.id) === employeeId);
       if (!emp) return;
 
-      // Toggle estado visual y lógico de forma sincronizada
+      const previousRecorded = Boolean(emp.attendanceRecorded);
       const isActive = mark.classList.toggle('active');
       const icon = mark.querySelector('svg, i');
       if (icon) {
@@ -475,13 +651,18 @@
       }
 
       emp.checkedIn = isActive;
+      emp.attendanceRecorded = true;
       mark.setAttribute('aria-pressed', String(isActive));
 
+      attendanceHasRecords = true;
+      recalculateReadOnlyState();
       updatePresentCount();
       updateEmployeeCheckStatus(emp.id, isActive);
+      updateReport();
+
+      updateEmployeeCheckStatus(emp.id, isActive, previousRecorded);
     });
 
-    // ======= Exportar CSV =======
     function exportCSV() {
       const headers = ['fecha','id','nombre','puesto','departamento','presente'];
       const dateStr = formatForInput(currentDate);
@@ -546,11 +727,12 @@
       reader.readAsArrayBuffer(file);
     });
 
-    // ======= Init =======
     document.addEventListener('DOMContentLoaded', async () => {
-      await loadEmployeesFromServer();
+      updateDateDisplay();
+      await loadEmployeesFromServer(currentDate);
       if (window.feather && typeof feather.replace === 'function') feather.replace();
     });
   </script>
+  
 </body>
 </html>
