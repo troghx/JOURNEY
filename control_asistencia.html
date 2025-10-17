@@ -130,7 +130,12 @@
         normalized[key.trim().toLowerCase()] = value;
       });
 
-      const idValue = normalized.id ?? normalized['no'] ?? normalized['numero'];
+      const idValue =
+        normalized.id ??
+        normalized['no'] ??
+        normalized['numero'] ??
+        normalized['clave'] ??
+        normalized['clave de empleado'];
       const nameValue = normalized.nombre ?? normalized.name ?? '';
       const positionValue = normalized.puesto ?? normalized.position ?? '';
       const departmentValue = normalized.departamento ?? normalized.department ?? '';
