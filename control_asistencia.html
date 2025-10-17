@@ -112,6 +112,7 @@
 
   <script>
     // ======= Datos de empleados (se cargan desde archivo) =======
+    const API_BASE_URL = '/.netlify/functions/employees';
     let employees = [];
     let tempIdCounter = 0;
 
@@ -157,6 +158,91 @@
         department: toCleanString(departmentValue),
         checkedIn: parseBoolean(presentValue)
       };
+    }
+
+    function mapServerEmployee(emp = {}) {
+      return {
+        id: emp.id,
+        name: emp.name || '',
+        position: emp.position || '',
+        department: emp.department || '',
+        checkedIn: Boolean(emp.checkedIn)
+      };
+    }
+
+    function refreshUI() {
+      renderEmployees();
+      updateTotalCount();
+      updatePresentCount();
+      filterEmployees();
+    }
+
+    async function loadEmployeesFromServer() {
+      try {
+        const response = await fetch(API_BASE_URL);
+        if (!response.ok) throw new Error('No se pudo obtener la lista de empleados.');
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = payload.employees.map(mapServerEmployee);
+        }
+      } catch (error) {
+        console.error('Error al cargar empleados desde el servidor:', error);
+        alert('No se pudo cargar la información de empleados guardada en Neon. Revisa la consola para más detalles.');
+      }
+      refreshUI();
+    }
+
+    async function saveEmployeesToServer(newEmployees) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employees: newEmployees })
+        });
+        if (!response.ok) throw new Error('No se pudo guardar la información en el servidor.');
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = payload.employees.map(mapServerEmployee);
+          refreshUI();
+        }
+        if (typeof payload.inserted === 'number' || typeof payload.skipped === 'number') {
+          const inserted = payload.inserted ?? 0;
+          const skipped = payload.skipped ?? 0;
+          alert(`Importación completada. Nuevos: ${inserted}. Omitidos por ID duplicado: ${skipped}.`);
+        }
+      } catch (error) {
+        console.error('Error al guardar empleados en el servidor:', error);
+        alert('No se pudieron guardar los empleados en Neon. Revisa tu conexión y configuración.');
+        refreshUI();
+      }
+    }
+
+    async function updateEmployeeCheckStatus(id, checkedIn) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, checkedIn })
+        });
+        if (!response.ok) throw new Error('Error al actualizar asistencia.');
+        const payload = await response.json();
+        if (payload && payload.employee) {
+          const updated = mapServerEmployee(payload.employee);
+          const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
+          if (index !== -1) {
+            employees[index] = updated;
+            refreshUI();
+          }
+        }
+      } catch (error) {
+        console.error('Error al actualizar asistencia:', error);
+        alert('No se pudo actualizar la asistencia en Neon. Se revertirá el cambio.');
+        const target = employees.find(emp => String(emp.id) === String(id));
+        if (target) {
+          target.checkedIn = !checkedIn;
+          refreshUI();
+        }
+      }
     }
 
     // ======= Fecha =======
@@ -316,6 +402,7 @@
       mark.setAttribute('aria-pressed', String(isActive));
 
       updatePresentCount();
+      updateEmployeeCheckStatus(emp.id, isActive);
     });
 
     // ======= Exportar CSV =======
@@ -356,7 +443,7 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
@@ -365,12 +452,14 @@
 
           const worksheet = workbook.Sheets[firstSheetName];
           const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-          employees = rows.map(normalizeEmployee).filter(emp => emp.name);
+          const normalized = rows.map(normalizeEmployee).filter(emp => emp.name);
+          if (!normalized.length) {
+            alert('No se encontraron filas válidas en el archivo.');
+            refreshUI();
+            return;
+          }
 
-          renderEmployees();
-          updateTotalCount();
-          updatePresentCount();
-          filterEmployees();
+          await saveEmployeesToServer(normalized);
         } catch (error) {
           console.error(error);
           alert('No se pudo leer el archivo. Verifica que tenga encabezados como ID, Nombre, Puesto y Departamento.');
@@ -382,11 +471,8 @@
     });
 
     // ======= Init =======
-    document.addEventListener('DOMContentLoaded', () => {
-      renderEmployees();
-      updateTotalCount();
-      updatePresentCount();
-      filterEmployees();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadEmployeesFromServer();
       if (window.feather && typeof feather.replace === 'function') feather.replace();
     });
   </script>
