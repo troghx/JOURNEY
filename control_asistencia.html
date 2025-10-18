@@ -845,15 +845,15 @@
       
       mark.classList.add('active');
       if (icon) icon.classList.remove('opacity-0');
-      const nowIso = new Date().toISOString();
+      const checkInIso = new Date().toISOString();
       emp.checkedIn = true;
-      emp.checkedInAt = nowIso;
+      emp.checkedInAt = checkInIso;
       emp.attendanceRecorded = true;
-      mark.classList.add('active');
-      if (icon) icon.classList.remove('opacity-0');
-      const nowIso = new Date().toISOString();
-      emp.checkedIn = true;
-      emp.checkedInAt = nowIso;
+      mark.setAttribute('aria-pressed', 'true');
+      if (timeEl) {
+        timeEl.textContent = `Registro: ${formatCheckInTime(checkInIso)}`;
+        timeEl.classList.remove('hidden');
+      }
       attendanceHasRecords = true;
       recalculateReadOnlyState();
       updatePresentCount();
