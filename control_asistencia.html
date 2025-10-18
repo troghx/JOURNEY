@@ -13,7 +13,6 @@
 
     <!-- SheetJS (Excel parsing) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -123,46 +122,6 @@
 
       <!-- Employee List -->
       <div id="employee-list" class="space-y-3"></div>
-      
-      <!-- Workforce Report -->
-      <section class="mt-10 space-y-6">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-700">Reporte de fuerza de trabajo</h2>
-          <p class="text-sm text-gray-500">Resumen por departamento de la asistencia del día seleccionado.</p>
-        </div>
-
-        <div class="grid gap-6 md:grid-cols-2">
-          <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="text-sm font-medium text-gray-600 mb-3">Asistieron por departamento</h3>
-            <canvas id="present-chart" height="200"></canvas>
-          </div>
-          <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="text-sm font-medium text-gray-600 mb-3">No asistieron por departamento</h3>
-            <canvas id="absent-chart" height="200"></canvas>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-          <div class="px-4 py-3 border-b border-gray-100">
-            <h3 class="text-sm font-medium text-gray-600">Detalle por empleado</h3>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-100">
-              <thead class="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <tr>
-                  <th scope="col" class="px-4 py-3">#</th>
-                  <th scope="col" class="px-4 py-3">Nombre</th>
-                  <th scope="col" class="px-4 py-3">Departamento</th>
-                  <th scope="col" class="px-4 py-3">Puesto</th>
-                  <th scope="col" class="px-4 py-3 text-center">Asistencia</th>
-                </tr>
-              </thead>
-              <tbody id="attendance-table-body" class="bg-white divide-y divide-gray-100 text-sm text-gray-600"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </main>
 
     <!-- Floating Action Buttons -->
     <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
@@ -197,13 +156,10 @@
     let currentDate = new Date();
     let attendanceHasRecords = false;
     let isReadOnlyDate = false;
-    let presentChartInstance = null;
-    let absentChartInstance = null;
 
     const employeeList = document.getElementById('employee-list');
     const searchInput = document.getElementById('search-input');
     const readOnlyBanner = document.getElementById('read-only-banner');
-    const attendanceTableBody = document.getElementById('attendance-table-body');
     const addEmployeeBtn = document.getElementById('add-employee-btn');
     const addEmployeeModal = document.getElementById('add-employee-modal');
     const addEmployeeForm = document.getElementById('add-employee-form');
@@ -423,7 +379,6 @@
       updatePresentCount();
       applySearchFilter();
       updateReadOnlyBanner();
-      updateReport();
       updateClearButtonState();
     }
 
@@ -564,7 +519,6 @@
           recalculateReadOnlyState();
           updateReadOnlyBanner();
           updatePresentCount();
-          updateReport();
         }
       }
     }
@@ -760,112 +714,6 @@
       }
     }
 
-    const chartPalette = ['#10B981', '#F59E0B', '#3B82F6', '#F87171', '#6366F1', '#14B8A6', '#F97316', '#8B5CF6', '#06B6D4'];
-
-    function buildDepartmentSummary() {
-      const summary = new Map();
-      employees.forEach(emp => {
-        const department = emp.department || 'Sin departamento';
-        if (!summary.has(department)) {
-          summary.set(department, { present: 0, absent: 0 });
-        }
-        const record = summary.get(department);
-        if (emp.checkedIn) record.present += 1;
-        else record.absent += 1;
-      });
-      return Array.from(summary.entries()).map(([department, counts]) => ({ department, ...counts }));
-    }
-
-    function updatePieChart(instance, canvasId, labels, data, label) {
-      const ctx = document.getElementById(canvasId);
-      if (!ctx) return null;
-
-      const backgroundColor = labels.map((_, index) => chartPalette[index % chartPalette.length]);
-
-      if (!instance) {
-        return new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels,
-            datasets: [
-              {
-                label,
-                data,
-                backgroundColor,
-                borderWidth: 0,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { color: '#4B5563' },
-              },
-              tooltip: {
-                callbacks: {
-                  label: (context) => `${context.label}: ${context.formattedValue}`,
-                },
-              },
-            },
-          },
-        });
-      }
-
-      instance.data.labels = labels;
-      instance.data.datasets[0].data = data;
-      instance.data.datasets[0].backgroundColor = backgroundColor;
-      instance.update();
-      return instance;
-    }
-
-    function updateAttendanceTable() {
-      attendanceTableBody.innerHTML = '';
-
-      if (!employees.length) {
-        const row = document.createElement('tr');
-        const cell = document.createElement('td');
-        cell.colSpan = 5;
-        cell.className = 'px-4 py-4 text-center text-gray-500';
-        cell.textContent = 'No hay registros para mostrar.';
-        row.appendChild(cell);
-        attendanceTableBody.appendChild(row);
-        return;
-      }
-
-      employees.forEach((emp, index) => {
-        const row = document.createElement('tr');
-        row.className = 'hover:bg-gray-50';
-
-        const statusIcon = emp.checkedIn
-          ? '<span class="inline-flex items-center text-emerald-600 font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 0 1.42l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.42l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" clip-rule="evenodd" /></svg><span class="ml-2">Presente</span></span>'
-          : '<span class="inline-flex items-center text-rose-500 font-medium"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 0 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd" /></svg><span class="ml-2">Ausente</span></span>';
-
-        row.innerHTML = `
-          <td class="px-4 py-3 whitespace-nowrap text-gray-500">${index + 1}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-gray-700">${emp.name || '—'}</td>
-          <td class="px-4 py-3 whitespace-nowrap">${emp.department || '—'}</td>
-          <td class="px-4 py-3 whitespace-nowrap">${emp.position || '—'}</td>
-          <td class="px-4 py-3 whitespace-nowrap text-center">${statusIcon}</td>
-        `;
-
-        attendanceTableBody.appendChild(row);
-      });
-    }
-
-    function updateReport() {
-      const summary = buildDepartmentSummary();
-      const labels = summary.map(item => item.department);
-      const presentData = summary.map(item => item.present);
-      const absentData = summary.map(item => item.absent);
-
-      presentChartInstance = updatePieChart(presentChartInstance, 'present-chart', labels, presentData, 'Presentes');
-      absentChartInstance = updatePieChart(absentChartInstance, 'absent-chart', labels, absentData, 'Ausentes');
-
-      updateAttendanceTable();
-    }
-
     function hideClearConfirmation() {
       if (clearConfirmationCard) clearConfirmationCard.classList.add('hidden');
     }
@@ -950,7 +798,6 @@
       updatePresentCount();
       updateClearButtonState();
       updateEmployeeCheckStatus(emp.id, isActive, previousRecorded);
-      updateReport();
     });
 
     document.addEventListener('click', async (event) => {
