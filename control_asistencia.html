@@ -16,9 +16,67 @@
   
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .employee-card { transition: all 0.2s ease; }
-    .employee-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.15), transparent 45%),
+        radial-gradient(circle at 80% 10%, rgba(249, 115, 22, 0.12), transparent 55%),
+        radial-gradient(circle at 30% 85%, rgba(129, 140, 248, 0.12), transparent 50%),
+        #0f172a url('journey_background.png') center/cover no-repeat fixed;
+      color: #111827;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: -1;
+    }
+
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .employee-card {
+      transition: all 0.2s ease;
+    }
+
+    .employee-card.glass-panel {
+      background: rgba(255, 255, 255, 0.74);
+    }
+
+    .employee-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    #clear-toast.glass-panel {
+      background: rgba(16, 185, 129, 0.92);
+      border-color: rgba(236, 253, 245, 0.25);
+      color: #ecfdf5;
+    }
+
+    .glass-input {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.92);
+      border-color: rgba(16, 185, 129, 0.45);
+    }
     .checkmark { transition: all 0.3s ease; }
     .checkmark.active { background-color: #10B981; color: white; border-color: #10B981; }
     .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
@@ -48,10 +106,10 @@
   </style>
 </head>
 
-<body class="bg-gray-50">
+<body class="text-gray-900">
   <div class="min-h-screen pb-20">
     <!-- Header -->
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="glass-panel sticky top-0 z-10">
       <div class="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center space-x-2">
           <div class="h-10 w-10 rounded bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -85,7 +143,7 @@
     <main class="container mx-auto px-4 py-6">
       <!-- Date Picker Modal -->
       <div id="date-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
-        <div class="bg-white w-full max-w-md rounded-lg p-6 mx-4">
+        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4">
           <h3 class="text-lg font-semibold mb-4">Seleccionar fecha</h3>
           <input type="date" id="date-input" class="w-full p-2 border rounded mb-4" />
           <div class="flex justify-end space-x-2">
@@ -96,7 +154,7 @@
       </div>
 
       <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden">
-        <div class="bg-white w-full max-w-md rounded-lg p-6 mx-4">
+        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4">
           <h3 class="text-lg font-semibold mb-4">Agregar nuevo personal</h3>
           <form id="add-employee-form" class="space-y-4">
             <div>
@@ -126,7 +184,7 @@
             id="search-input"
             type="text"
             placeholder="Buscar empleado..."
-            class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+            class="w-full px-4 py-3 rounded-lg glass-input focus:outline-none focus:ring-2 focus:ring-emerald-300"
           />
           <i data-feather="search" class="absolute right-3 top-3 text-gray-400"></i>
         </div>
@@ -135,14 +193,14 @@
 
       <!-- Stats -->
       <div class="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2">
-        <div class="bg-white p-4 rounded-lg shadow">
+        <div class="glass-panel p-4 rounded-lg">
           <div class="text-gray-500 text-sm">Total empleados</div>
           <div id="total-count" class="text-2xl font-bold text-gray-800">0</div>
         </div>
         <button
           id="present-filter-btn"
           type="button"
-          class="bg-white p-4 rounded-lg shadow text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
+          class="glass-panel p-4 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
           aria-pressed="false"
         >
           <div class="text-gray-500 text-sm">Presentes hoy</div>
@@ -150,14 +208,14 @@
         </button>
       </div>
 
-      <div id="read-only-banner" class="hidden mb-6 p-4 rounded-lg border border-gray-200 bg-gray-100 text-sm text-gray-600"></div>
+      <div id="read-only-banner" class="hidden glass-panel mb-6 p-4 rounded-lg text-sm text-gray-700"></div>
 
       <!-- Employee List -->
       <div id="employee-list" class="space-y-2 sm:space-y-3"></div>
 
     <!-- Floating Action Buttons -->
     <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
-      <div id="clear-confirmation" class="hidden w-72 bg-white border border-gray-100 shadow-lg rounded-lg p-4 text-sm text-gray-700">
+      <div id="clear-confirmation" class="hidden w-72 glass-panel rounded-lg p-4 text-sm text-gray-700">
         <div class="font-medium text-gray-800 mb-3">¿Limpiar asistencias de <span id="clear-confirmation-date"></span>?</div>
         <p class="text-xs text-gray-500 mb-3">Esta acción eliminará todos los registros de asistencia del día seleccionado.</p>
         <div class="flex justify-end space-x-2 text-sm">
@@ -166,7 +224,7 @@
         </div>
       </div>
 
-      <div id="clear-toast" class="hidden w-72 bg-emerald-500 text-white text-sm rounded-lg shadow-lg px-4 py-3">
+      <div id="clear-toast" class="hidden w-72 glass-panel bg-emerald-500/90 text-white text-sm rounded-lg shadow-lg px-4 py-3 border-none">
         Asistencias limpiadas correctamente.
       </div>
 
@@ -677,7 +735,7 @@
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
 
-        card.className = 'employee-card gap-3 rounded-lg bg-white p-3 shadow sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
+        card.className = 'employee-card glass-panel gap-3 rounded-lg p-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
         card.dataset.name = normalizeForSearch(emp.name || '');
         card.dataset.present = String(Boolean(emp.checkedIn));
 
