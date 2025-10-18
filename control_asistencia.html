@@ -22,8 +22,9 @@
       background:
         radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.15), transparent 45%),
         radial-gradient(circle at 80% 10%, rgba(249, 115, 22, 0.12), transparent 55%),
-        radial-gradient(circle at 30% 85%, rgba(129, 140, 248, 0.12), transparent 50%),
-        #0f172a url('journey_background.png') center/cover no-repeat fixed;
+        radial-gradient(circle at 30% 85%, rgba(129, 140, 248, 0.1), transparent 50%),
+        linear-gradient(135deg, rgba(148, 163, 184, 0.35), rgba(30, 41, 59, 0.65)),
+        #1f2937 url('journey_background.png') center/cover no-repeat fixed;
       color: #111827;
       position: relative;
     }
@@ -32,7 +33,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.45);
+      background: rgba(55, 65, 81, 0.4);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       z-index: -1;
@@ -180,13 +181,22 @@
       <!-- Search and Filter -->
       <div class="mb-6">
         <div class="relative">
+          <i data-feather="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
           <input
             id="search-input"
             type="text"
             placeholder="Buscar empleado..."
-            class="w-full px-4 py-3 rounded-lg glass-input focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            class="w-full py-3 pl-11 pr-12 rounded-lg glass-input focus:outline-none focus:ring-2 focus:ring-emerald-300"
           />
-          <i data-feather="search" class="absolute right-3 top-3 text-gray-400"></i>
+          <button
+            type="button"
+            id="search-clear"
+            class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+            aria-hidden="true"
+          >
+            <span class="sr-only">Limpiar búsqueda</span>
+            <i data-feather="x"></i>
+          </button>
         </div>
 
       </div>
@@ -249,6 +259,7 @@
 
     const employeeList = document.getElementById('employee-list');
     const searchInput = document.getElementById('search-input');
+    const searchClearButton = document.getElementById('search-clear');
     const readOnlyBanner = document.getElementById('read-only-banner');
     const presentFilterBtn = document.getElementById('present-filter-btn');
     const addEmployeeBtn = document.getElementById('add-employee-btn');
@@ -819,6 +830,13 @@
       }
     }
 
+    function updateSearchClearButton() {
+      if (!searchInput || !searchClearButton) return;
+      const hasValue = searchInput.value.trim().length > 0;
+      searchClearButton.classList.toggle('hidden', !hasValue);
+      searchClearButton.setAttribute('aria-hidden', String(!hasValue));
+    }
+
     function applyFilters() {
       if (!employeeList) return;
       const rawSearchValue = searchInput ? searchInput.value : '';
@@ -829,6 +847,7 @@
         const matchesPresent = !showPresentOnly || card.dataset.present === 'true';
         card.style.display = matchesName && matchesPresent ? 'flex' : 'none';
       });
+      updateSearchClearButton();
     }
 
     function updatePresentFilterButtonState() {
@@ -841,7 +860,17 @@
     }
 
     if (searchInput) {
-      searchInput.addEventListener('input', applyFilters);
+      searchInput.addEventListener('input', () => {
+        applyFilters();
+      });
+    }
+
+    if (searchClearButton && searchInput) {
+      searchClearButton.addEventListener('click', () => {
+        searchInput.value = '';
+        applyFilters();
+        searchInput.focus();
+      });
     }
 
     if (presentFilterBtn) {
