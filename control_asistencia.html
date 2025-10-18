@@ -339,10 +339,12 @@
         department: toCleanString(departmentValue),
         checkedIn: parseBoolean(presentValue),
         attendanceRecorded: false,
+        checkedInAt: null,
       };
     }
 
     function mapServerEmployee(emp = {}) {
+      const checkedInAtValue = emp.checkedInAt || emp.checked_in_at || null;
       return {
         id: emp.id,
         name: emp.name || '',
@@ -350,7 +352,15 @@
         department: emp.department || '',
         checkedIn: Boolean(emp.checkedIn),
         attendanceRecorded: Boolean(emp.attendanceRecorded),
+        checkedInAt: checkedInAtValue ? String(checkedInAtValue) : null,
       };
+    }
+
+    function formatCheckInTime(isoString) {
+      if (!isoString) return '';
+      const parsed = new Date(isoString);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
     }
 
     function startOfDay(date) {
@@ -478,7 +488,7 @@
       }
     }
 
-    async function updateEmployeeCheckStatus(id, checkedIn, previousRecorded = false) {
+    async function updateEmployeeCheckStatus(id, checkedIn, { previousRecorded = false, previousCheckedInAt = null } = {}) {
       try {
         const response = await fetch(API_BASE_URL, {
           method: 'PATCH',
@@ -495,7 +505,7 @@
           const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
           if (index !== -1) {
             employees[index] = updated;
-            attendanceHasRecords = true;
+            attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
             recalculateReadOnlyState();
             refreshUI();
           }
@@ -515,10 +525,13 @@
         if (target) {
           target.checkedIn = !checkedIn;
           target.attendanceRecorded = previousRecorded;
+          target.checkedInAt = previousCheckedInAt;
           attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
           recalculateReadOnlyState();
           updateReadOnlyBanner();
           updatePresentCount();
+          updateClearButtonState();
+          refreshUI();
         }
       }
     }
@@ -608,48 +621,57 @@
       employees.forEach(emp => {
         const card = document.createElement('div');
         const infoWrapper = document.createElement('div');
-        const nameRow = document.createElement('div');
         const nameEl = document.createElement('div');
-        const deleteBtn = document.createElement('button');
         const metaEl = document.createElement('div');
         const idEl = document.createElement('div');
+        const actionsPanel = document.createElement('div');
+        const deleteBtn = document.createElement('button');
+        const attendanceWrapper = document.createElement('div');
         const checkButton = document.createElement('button');
         const icon = document.createElement('i');
+        const timeEl = document.createElement('div');
         const isChecked = Boolean(emp.checkedIn);
+        const hasCheckInTime = Boolean(emp.checkedInAt);
 
-        card.className = 'employee-card bg-white rounded-lg shadow p-4 flex justify-between items-center';
+        card.className = 'employee-card bg-white rounded-lg shadow p-4 flex items-center justify-between gap-4';
         card.dataset.name = (emp.name || '').toLowerCase();
 
         if (isReadOnlyDate) {
           card.classList.add('opacity-60');
         }
 
-        nameRow.className = 'flex items-start justify-between space-x-3';
+        infoWrapper.className = 'flex-1 min-w-0';
 
-        nameEl.className = 'font-bold text-gray-800';
+        nameEl.className = 'font-bold text-gray-800 truncate';
         nameEl.textContent = emp.name || 'Empleado sin nombre';
 
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'delete-employee-btn p-1 rounded-full text-rose-500 hover:text-rose-600 transition-colors flex-shrink-0';
-        deleteBtn.dataset.id = String(emp.id);
-        deleteBtn.dataset.name = emp.name || '';
-        deleteBtn.setAttribute('aria-label', `Eliminar ${emp.name || 'empleado'}`);
-        deleteBtn.innerHTML = '<i data-feather="trash-2"></i>';
-
-        nameRow.appendChild(nameEl);
-        nameRow.appendChild(deleteBtn);
-
         metaEl.className = 'text-sm text-gray-500';
-        const metaParts = [emp.position, emp.department].filter(Boolean);
-        metaEl.textContent = metaParts.length ? metaParts.join(' • ') : 'Sin información';
+        if (emp.department) {
+          metaEl.textContent = emp.department;
+        } else {
+          metaEl.textContent = 'Sin información';
+        }
 
         idEl.className = 'text-xs text-gray-400 mt-1';
         const idValue = String(emp.id || '');
         idEl.textContent = idValue && !idValue.startsWith('manual-') ? `ID: ${idValue}` : 'ID: Pendiente';
 
-        infoWrapper.appendChild(nameRow);
+        infoWrapper.appendChild(nameEl);
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
+
+        actionsPanel.className = 'flex items-center justify-center bg-gray-100 rounded-full px-3 py-2 text-rose-500 flex-shrink-0';
+
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'delete-employee-btn p-1.5 rounded-full hover:text-rose-600 transition-colors';
+        deleteBtn.dataset.id = String(emp.id);
+        deleteBtn.dataset.name = emp.name || '';
+        deleteBtn.setAttribute('aria-label', `Eliminar ${emp.name || 'empleado'}`);
+        deleteBtn.innerHTML = '<i data-feather="trash-2"></i>';
+
+        actionsPanel.appendChild(deleteBtn);
+
+        attendanceWrapper.className = 'attendance-wrapper flex flex-col items-center justify-center flex-shrink-0';
 
         checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors';
         if (isReadOnlyDate) {
@@ -667,8 +689,17 @@
         if (!isChecked) icon.classList.add('opacity-0');
         checkButton.appendChild(icon);
 
+        timeEl.className = 'attendance-time mt-2 text-xs font-medium text-emerald-600' + (hasCheckInTime ? '' : ' hidden');
+        if (hasCheckInTime) {
+          timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
+        }
+
+        attendanceWrapper.appendChild(checkButton);
+        attendanceWrapper.appendChild(timeEl);
+
         card.appendChild(infoWrapper);
-        card.appendChild(checkButton);
+        card.appendChild(actionsPanel);
+        card.appendChild(attendanceWrapper);
 
         employeeList.appendChild(card);
       });
@@ -759,6 +790,7 @@
           ...emp,
           checkedIn: false,
           attendanceRecorded: false,
+          checkedInAt: null,
         }));
         attendanceHasRecords = false;
         recalculateReadOnlyState();
@@ -782,22 +814,51 @@
       const emp = employees.find(x => String(x.id) === employeeId);
       if (!emp) return;
 
-      const previousRecorded = Boolean(emp.attendanceRecorded);
-      const isActive = mark.classList.toggle('active');
       const icon = mark.querySelector('svg, i');
-      if (icon) {
-        icon.classList.toggle('opacity-0', !isActive);
+      const attendanceWrapper = mark.closest('.attendance-wrapper');
+      const timeEl = attendanceWrapper ? attendanceWrapper.querySelector('.attendance-time') : null;
+      const wasChecked = Boolean(emp.checkedIn);
+      const previousRecorded = Boolean(emp.attendanceRecorded);
+      const previousCheckedInAt = emp.checkedInAt;
+
+      if (wasChecked) {
+        const confirmed = confirm(`¿Quitar el registro de asistencia de ${emp.name || 'este colaborador'}?`);
+        if (!confirmed) return;
+
+        mark.classList.remove('active');
+        if (icon) icon.classList.add('opacity-0');
+        emp.checkedIn = false;
+        emp.checkedInAt = null;
+        emp.attendanceRecorded = false;
+        mark.setAttribute('aria-pressed', 'false');
+        if (timeEl) {
+          timeEl.textContent = '';
+          timeEl.classList.add('hidden');
+        }
+        attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
+        recalculateReadOnlyState();
+        updatePresentCount();
+        updateClearButtonState();
+        updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+        return;
       }
-
-      emp.checkedIn = isActive;
+      
+      mark.classList.add('active');
+      if (icon) icon.classList.remove('opacity-0');
+      const nowIso = new Date().toISOString();
+      emp.checkedIn = true;
+      emp.checkedInAt = nowIso;
       emp.attendanceRecorded = true;
-      mark.setAttribute('aria-pressed', String(isActive));
-
+      mark.classList.add('active');
+      if (icon) icon.classList.remove('opacity-0');
+      const nowIso = new Date().toISOString();
+      emp.checkedIn = true;
+      emp.checkedInAt = nowIso;
       attendanceHasRecords = true;
       recalculateReadOnlyState();
       updatePresentCount();
       updateClearButtonState();
-      updateEmployeeCheckStatus(emp.id, isActive, previousRecorded);
+      updateEmployeeCheckStatus(emp.id, true, { previousRecorded, previousCheckedInAt });
     });
 
     document.addEventListener('click', async (event) => {
