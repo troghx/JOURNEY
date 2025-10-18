@@ -130,7 +130,7 @@
       <div id="read-only-banner" class="hidden mb-6 p-4 rounded-lg border border-gray-200 bg-gray-100 text-sm text-gray-600"></div>
 
       <!-- Employee List -->
-      <div id="employee-list" class="space-y-3"></div>
+      <div id="employee-list" class="space-y-2 sm:space-y-3"></div>
 
     <!-- Floating Action Buttons -->
     <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
@@ -654,7 +654,7 @@
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
 
-        card.className = 'employee-card flex flex-col gap-4 rounded-lg bg-white p-4 shadow sm:flex-row sm:items-center sm:justify-between sm:gap-6';
+        card.className = 'employee-card flex flex-col gap-3 rounded-lg bg-white p-3 shadow sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
         card.dataset.name = normalizeForSearch(emp.name || '');
         card.dataset.present = String(Boolean(emp.checkedIn));
 
@@ -682,7 +682,7 @@
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
 
-        actionsPanel.className = 'flex w-full items-center justify-end gap-2 text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
+        actionsPanel.className = 'flex items-center justify-end gap-2 self-end text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
 
         deleteBtn.type = 'button';
         deleteBtn.className = 'delete-employee-btn p-1.5 rounded-full hover:text-rose-600 transition-colors';
@@ -693,9 +693,9 @@
 
         actionsPanel.appendChild(deleteBtn);
 
-        attendanceWrapper.className = 'attendance-wrapper flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-center sm:justify-center';
+        attendanceWrapper.className = 'attendance-wrapper flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
 
-        checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors';
+        checkButton.className = 'checkmark h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors sm:h-10 sm:w-10';
         if (isReadOnlyDate) {
           checkButton.classList.add('opacity-60', 'cursor-not-allowed');
           checkButton.disabled = true;
