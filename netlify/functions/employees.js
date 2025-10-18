@@ -92,9 +92,15 @@ async function ensureTable(sql) {
       employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
       attendance_date DATE NOT NULL,
       checked_in BOOLEAN NOT NULL DEFAULT FALSE,
+      checked_in_at TIMESTAMPTZ,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (employee_id, attendance_date)
     )
+  `;
+  
+  await sql`
+    ALTER TABLE employee_attendance
+    ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ
   `;
 }
 
@@ -106,6 +112,17 @@ const headers = {
 };
 
 function mapRow(r) {
+    let checkInIso = null;
+  if (r.checked_in_at) {
+    try {
+      const parsed = new Date(r.checked_in_at);
+      if (!Number.isNaN(parsed.getTime())) {
+        checkInIso = parsed.toISOString();
+      }
+    } catch (error) {
+      console.warn('[employees] No se pudo convertir checked_in_at a ISO:', error);
+    }
+  }
   return {
     id: r.id,
     name: r.name ?? '',
@@ -113,6 +130,7 @@ function mapRow(r) {
     department: r.department ?? '',
     checkedIn: !!r.checked_in,
     attendanceRecorded: !!(r.attendance_recorded ?? false),
+    checkedInAt: checkInIso,
   };
 }
 
@@ -172,6 +190,7 @@ export async function handler(event) {
           e.position,
           e.department,
           COALESCE(a.checked_in, FALSE) AS checked_in,
+          a.checked_in_at,
           (a.employee_id IS NOT NULL) AS attendance_recorded
         FROM employees e
         LEFT JOIN employee_attendance a
@@ -235,7 +254,7 @@ export async function handler(event) {
         const inserted = await sql`
           INSERT INTO employees (id, name, position, department, checked_in, updated_at)
           VALUES (${manualId}, ${name}, ${position}, ${department}, FALSE, now())
-          RETURNING id, name, position, department, checked_in, FALSE AS attendance_recorded
+          RETURNING id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
         `;
 
         if (!inserted.length) {
@@ -255,7 +274,7 @@ export async function handler(event) {
 
       const incoming = Array.isArray(body.employees) ? body.employees : [];
       if (!incoming.length) {
-        const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+        const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
         return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0, updated: 0, matchedByName: 0, promoted: 0 }) };
       }
 
@@ -434,7 +453,7 @@ export async function handler(event) {
 
       skipped += skippedFromInsert;
 
-      const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+      const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
       return {
         statusCode: 200,
         headers,
@@ -501,6 +520,7 @@ export async function handler(event) {
               e.position,
               e.department,
               COALESCE(a.checked_in, FALSE) AS checked_in,
+              a.checked_in_at,
               (a.employee_id IS NOT NULL) AS attendance_recorded
             FROM employees e
             LEFT JOIN employee_attendance a
@@ -509,7 +529,7 @@ export async function handler(event) {
           `;
           hasAttendanceRecords = rows.some(row => row.attendance_recorded);
         } else {
-          rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+          rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
         }
 
         const responseBody = {
@@ -561,7 +581,7 @@ export async function handler(event) {
         `;
       }
 
-      const rowsAfterDelete = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded FROM employees ORDER BY name ASC`;
+      const rowsAfterDelete = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
       return { statusCode: 200, headers, body: JSON.stringify({ employees: rowsAfterDelete.map(mapRow), deleted: deletedRows.length }) };
     }
 
@@ -602,12 +622,19 @@ export async function handler(event) {
         return { statusCode: 404, headers, body: JSON.stringify({ error: 'Empleado no encontrado' }) };
       }
 
-      await sql`
-        INSERT INTO employee_attendance (employee_id, attendance_date, checked_in, updated_at)
-        VALUES (${id}, ${resolvedDate.key}, ${checkedIn}, now())
-        ON CONFLICT (employee_id, attendance_date)
-        DO UPDATE SET checked_in = EXCLUDED.checked_in, updated_at = now()
-      `;
+      if (checkedIn) {
+        await sql`
+          INSERT INTO employee_attendance (employee_id, attendance_date, checked_in, checked_in_at, updated_at)
+          VALUES (${id}, ${resolvedDate.key}, TRUE, now(), now())
+          ON CONFLICT (employee_id, attendance_date)
+          DO UPDATE SET checked_in = EXCLUDED.checked_in, checked_in_at = now(), updated_at = now()
+        `;
+      } else {
+        await sql`
+          DELETE FROM employee_attendance
+          WHERE employee_id = ${id} AND attendance_date = ${resolvedDate.key}
+        `;
+      }
 
       await sql`
         UPDATE employees
@@ -622,7 +649,8 @@ export async function handler(event) {
           e.position,
           e.department,
           COALESCE(a.checked_in, FALSE) AS checked_in,
-          TRUE AS attendance_recorded
+          a.checked_in_at,
+          (a.employee_id IS NOT NULL) AS attendance_recorded
         FROM employees e
         LEFT JOIN employee_attendance a
           ON a.employee_id = e.id AND a.attendance_date = ${resolvedDate.key}
