@@ -22,6 +22,29 @@
     .checkmark { transition: all 0.3s ease; }
     .checkmark.active { background-color: #10B981; color: white; border-color: #10B981; }
     .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
+        @media (max-width: 639px) {
+      .employee-card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          'info actions'
+          'info attendance';
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+      }
+      .employee-card .employee-info {
+        grid-area: info;
+      }
+      .employee-card .employee-actions {
+        grid-area: actions;
+        align-self: flex-start;
+        justify-self: flex-end;
+      }
+      .employee-card .employee-attendance {
+        grid-area: attendance;
+        justify-self: flex-end;
+      }
+    }
   </style>
 </head>
 
@@ -654,7 +677,7 @@
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
 
-        card.className = 'employee-card flex flex-col gap-3 rounded-lg bg-white p-3 shadow sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
+        card.className = 'employee-card gap-3 rounded-lg bg-white p-3 shadow sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
         card.dataset.name = normalizeForSearch(emp.name || '');
         card.dataset.present = String(Boolean(emp.checkedIn));
 
@@ -662,7 +685,7 @@
           card.classList.add('opacity-60');
         }
 
-        infoWrapper.className = 'flex-1 min-w-0 text-left';
+        infoWrapper.className = 'employee-info flex-1 min-w-0 text-left';
 
         nameEl.className = 'font-bold text-gray-800 truncate';
         nameEl.textContent = emp.name || 'Empleado sin nombre';
@@ -682,7 +705,7 @@
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
 
-        actionsPanel.className = 'flex items-center justify-end gap-2 self-end text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
+        actionsPanel.className = 'employee-actions flex items-center justify-end gap-2 text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
 
         deleteBtn.type = 'button';
         deleteBtn.className = 'delete-employee-btn p-1.5 rounded-full hover:text-rose-600 transition-colors';
@@ -693,7 +716,7 @@
 
         actionsPanel.appendChild(deleteBtn);
 
-        attendanceWrapper.className = 'attendance-wrapper flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
+        attendanceWrapper.className = 'employee-attendance attendance-wrapper flex items-center gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
 
         checkButton.className = 'checkmark h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors sm:h-10 sm:w-10';
         if (isReadOnlyDate) {
@@ -711,7 +734,7 @@
         if (!isChecked) icon.classList.add('opacity-0');
         checkButton.appendChild(icon);
 
-        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 sm:mt-2' + (hasCheckInTime ? '' : ' hidden');
+        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right sm:mt-2 sm:text-center' + (hasCheckInTime ? '' : ' hidden');
         if (hasCheckInTime) {
           timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
         }
