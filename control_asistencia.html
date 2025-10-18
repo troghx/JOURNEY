@@ -29,26 +29,30 @@
   <div class="min-h-screen pb-20">
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-10">
-      <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center space-x-2">
           <div class="h-10 w-10 rounded bg-gray-200 flex items-center justify-center overflow-hidden">
             <img src="journey_no_bg.png" alt="JSC Logo" class="h-8 w-8 object-contain" />
           </div>
-          <h1 class="text-xl font-bold text-gray-800">JSC</h1>
+          <h1 class="hidden text-xl font-bold text-gray-800 sm:block">JSC</h1>
+          <span class="sr-only">JSC</span>
         </div>
-        <div class="flex items-center space-x-3 text-sm text-gray-600">
+        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
             <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
             <i data-feather="user-plus"></i>
-            <span>Agregar personal</span>
+            <span class="hidden sm:inline">Agregar personal</span>
+            <span class="sr-only">Agregar nuevo personal</span>
           </button>
           <button id="import-btn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
             <i data-feather="upload"></i>
-            <span>Importar desde Excel</span>
+            <span class="hidden sm:inline">Importar desde Excel</span>
+            <span class="sr-only">Importar empleados desde Excel</span>
           </button>
           <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
           <button id="date-selector" class="hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
             <i data-feather="calendar"></i>
-            <span id="current-date"></span>
+            <span id="current-date" class="hidden sm:inline"></span>
+            <span class="sr-only">Seleccionar fecha</span>
           </button>
         </div>
       </div>
@@ -58,7 +62,7 @@
     <main class="container mx-auto px-4 py-6">
       <!-- Date Picker Modal -->
       <div id="date-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="bg-white w-full max-w-md rounded-lg p-6 mx-4">
           <h3 class="text-lg font-semibold mb-4">Seleccionar fecha</h3>
           <input type="date" id="date-input" class="w-full p-2 border rounded mb-4" />
           <div class="flex justify-end space-x-2">
@@ -69,7 +73,7 @@
       </div>
 
       <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="bg-white w-full max-w-md rounded-lg p-6 mx-4">
           <h3 class="text-lg font-semibold mb-4">Agregar nuevo personal</h3>
           <form id="add-employee-form" class="space-y-4">
             <div>
@@ -107,7 +111,7 @@
       </div>
 
       <!-- Stats -->
-      <div class="grid grid-cols-2 gap-3 mb-6">
+      <div class="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2">
         <div class="bg-white p-4 rounded-lg shadow">
           <div class="text-gray-500 text-sm">Total empleados</div>
           <div id="total-count" class="text-2xl font-bold text-gray-800">0</div>
@@ -650,7 +654,7 @@
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
 
-        card.className = 'employee-card bg-white rounded-lg shadow p-4 flex items-center justify-between gap-4';
+        card.className = 'employee-card flex flex-col gap-4 rounded-lg bg-white p-4 shadow sm:flex-row sm:items-center sm:justify-between sm:gap-6';
         card.dataset.name = normalizeForSearch(emp.name || '');
         card.dataset.present = String(Boolean(emp.checkedIn));
 
@@ -658,7 +662,7 @@
           card.classList.add('opacity-60');
         }
 
-        infoWrapper.className = 'flex-1 min-w-0';
+        infoWrapper.className = 'flex-1 min-w-0 text-left';
 
         nameEl.className = 'font-bold text-gray-800 truncate';
         nameEl.textContent = emp.name || 'Empleado sin nombre';
@@ -670,7 +674,7 @@
           metaEl.textContent = 'Sin información';
         }
 
-        idEl.className = 'text-xs text-gray-400 mt-1';
+        idEl.className = 'mt-1 text-xs text-gray-400';
         const idValue = String(emp.id || '');
         idEl.textContent = idValue && !idValue.startsWith('manual-') ? `ID: ${idValue}` : 'ID: Pendiente';
 
@@ -678,7 +682,7 @@
         infoWrapper.appendChild(metaEl);
         infoWrapper.appendChild(idEl);
 
-        actionsPanel.className = 'flex items-center justify-center bg-gray-100 rounded-full px-3 py-2 text-rose-500 flex-shrink-0';
+        actionsPanel.className = 'flex w-full items-center justify-end gap-2 text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
 
         deleteBtn.type = 'button';
         deleteBtn.className = 'delete-employee-btn p-1.5 rounded-full hover:text-rose-600 transition-colors';
@@ -689,7 +693,7 @@
 
         actionsPanel.appendChild(deleteBtn);
 
-        attendanceWrapper.className = 'attendance-wrapper flex flex-col items-center justify-center flex-shrink-0';
+        attendanceWrapper.className = 'attendance-wrapper flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-center sm:justify-center';
 
         checkButton.className = 'checkmark w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors';
         if (isReadOnlyDate) {
@@ -707,7 +711,7 @@
         if (!isChecked) icon.classList.add('opacity-0');
         checkButton.appendChild(icon);
 
-        timeEl.className = 'attendance-time mt-2 text-xs font-medium text-emerald-600' + (hasCheckInTime ? '' : ' hidden');
+        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 sm:mt-2' + (hasCheckInTime ? '' : ' hidden');
         if (hasCheckInTime) {
           timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
         }
