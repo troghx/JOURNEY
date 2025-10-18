@@ -112,10 +112,15 @@
           <div class="text-gray-500 text-sm">Total empleados</div>
           <div id="total-count" class="text-2xl font-bold text-gray-800">0</div>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow">
+        <button
+          id="present-filter-btn"
+          type="button"
+          class="bg-white p-4 rounded-lg shadow text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
+          aria-pressed="false"
+        >
           <div class="text-gray-500 text-sm">Presentes hoy</div>
           <div id="present-count" class="text-2xl font-bold text-emerald-600">0</div>
-        </div>
+        </button>
       </div>
 
       <div id="read-only-banner" class="hidden mb-6 p-4 rounded-lg border border-gray-200 bg-gray-100 text-sm text-gray-600"></div>
@@ -160,6 +165,7 @@
     const employeeList = document.getElementById('employee-list');
     const searchInput = document.getElementById('search-input');
     const readOnlyBanner = document.getElementById('read-only-banner');
+    const presentFilterBtn = document.getElementById('present-filter-btn');
     const addEmployeeBtn = document.getElementById('add-employee-btn');
     const addEmployeeModal = document.getElementById('add-employee-modal');
     const addEmployeeForm = document.getElementById('add-employee-form');
@@ -175,6 +181,16 @@
     const confirmClearBtn = document.getElementById('confirm-clear-btn');
     const clearToast = document.getElementById('clear-toast');
     let clearToastTimeout = null;
+    let showPresentOnly = false;
+
+    function normalizeForSearch(value) {
+      return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
     async function parseErrorResponse(response) {
       if (!response) return 'Error desconocido del servidor.';
       const statusText = response.status ? ` (HTTP ${response.status})` : '';
@@ -387,7 +403,8 @@
       renderEmployees();
       updateTotalCount();
       updatePresentCount();
-      applySearchFilter();
+      updatePresentFilterButtonState();
+      applyFilters();
       updateReadOnlyBanner();
       updateClearButtonState();
     }
@@ -634,7 +651,8 @@
         const hasCheckInTime = Boolean(emp.checkedInAt);
 
         card.className = 'employee-card bg-white rounded-lg shadow p-4 flex items-center justify-between gap-4';
-        card.dataset.name = (emp.name || '').toLowerCase();
+        card.dataset.name = normalizeForSearch(emp.name || '');
+        card.dataset.present = String(Boolean(emp.checkedIn));
 
         if (isReadOnlyDate) {
           card.classList.add('opacity-60');
@@ -716,16 +734,38 @@
       }
     }
 
-    function applySearchFilter() {
-      const searchTerm = (searchInput.value || '').toLowerCase().trim();
+    function applyFilters() {
+      if (!employeeList) return;
+      const rawSearchValue = searchInput ? searchInput.value : '';
+      const searchTerm = normalizeForSearch(rawSearchValue);
       const cards = employeeList.querySelectorAll('.employee-card');
       cards.forEach(card => {
-        const matchesName = card.dataset.name.includes(searchTerm);
-        card.style.display = matchesName ? 'flex' : 'none';
+        const matchesName = !searchTerm || card.dataset.name.includes(searchTerm);
+        const matchesPresent = !showPresentOnly || card.dataset.present === 'true';
+        card.style.display = matchesName && matchesPresent ? 'flex' : 'none';
       });
     }
 
-    searchInput.addEventListener('input', applySearchFilter);
+    function updatePresentFilterButtonState() {
+      if (!presentFilterBtn) return;
+      presentFilterBtn.classList.toggle('ring-2', showPresentOnly);
+      presentFilterBtn.classList.toggle('ring-emerald-500', showPresentOnly);
+      presentFilterBtn.classList.toggle('bg-emerald-50', showPresentOnly);
+      presentFilterBtn.classList.toggle('bg-white', !showPresentOnly);
+      presentFilterBtn.setAttribute('aria-pressed', String(showPresentOnly));
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', applyFilters);
+    }
+
+    if (presentFilterBtn) {
+      presentFilterBtn.addEventListener('click', () => {
+        showPresentOnly = !showPresentOnly;
+        updatePresentFilterButtonState();
+        applyFilters();
+      });
+    }
 
     function updatePresentCount() {
       const presentCount = employees.filter(e => e.checkedIn).length;
