@@ -65,6 +65,38 @@
     }
     .checkmark { transition: all 0.3s ease; }
     .checkmark.active { background-color: #10B981; color: white; border-color: #10B981; }
+    .checkmark.checked-out { background-color: #F59E0B; color: white; border-color: #F59E0B; }
+    .attendance-time.checkout { color: #B45309; }
+    .attendance-action-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(17, 24, 39, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      transition: background 0.3s ease;
+    }
+    .attendance-action-sheet.active { display: flex; }
+    .attendance-action-sheet.keyboard-open {
+      align-items: flex-end;
+      padding-bottom: calc(var(--keyboard-offset, 0px) + 1.5rem);
+    }
+    .attendance-action-card {
+      width: 100%;
+      max-width: 26rem;
+      border-radius: 1rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+      transform: translateY(-12vh);
+      transition: transform 0.3s ease;
+    }
+    .attendance-action-sheet.keyboard-open .attendance-action-card {
+      transform: translateY(0);
+    }
+    .attendance-action-card button[data-variant='ghost'] {
+      border-color: rgba(229, 231, 235, 0.7);
+    }
     .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
         @media (max-width: 639px) {
       .employee-card {
@@ -233,6 +265,30 @@
         <i data-feather="download"></i>
       </button>
     </div>
+      
+    <div id="attendance-action-sheet" class="attendance-action-sheet hidden">
+      <div class="attendance-action-card glass-panel w-full p-5">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">¿Qué deseas hacer?</h3>
+            <p id="attendance-action-message" class="text-sm text-gray-500 mt-1">
+              Selecciona una opción para actualizar la asistencia.
+            </p>
+          </div>
+          <button id="attendance-action-cancel" class="p-2 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Cerrar">
+            <i data-feather="x"></i>
+          </button>
+        </div>
+        <div class="mt-5 space-y-3">
+          <button id="attendance-remove-btn" class="w-full px-4 py-3 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors" data-variant="ghost">
+            Quitar asistencia
+          </button>
+          <button id="attendance-checkout-btn" class="w-full px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium shadow hover:bg-amber-600 transition-colors">
+            Marcar salida
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -261,8 +317,17 @@
     const cancelClearBtn = document.getElementById('cancel-clear-btn');
     const confirmClearBtn = document.getElementById('confirm-clear-btn');
     const clearToast = document.getElementById('clear-toast');
+    const attendanceActionSheet = document.getElementById('attendance-action-sheet');
+    const attendanceActionMessage = document.getElementById('attendance-action-message');
+    const attendanceActionCancel = document.getElementById('attendance-action-cancel');
+    const attendanceRemoveBtn = document.getElementById('attendance-remove-btn');
+    const attendanceCheckoutBtn = document.getElementById('attendance-checkout-btn');
     let clearToastTimeout = null;
     let showPresentOnly = false;
+    let pendingCheckAction = null;
+
+    const CHECKOUT_STORAGE_KEY = 'journey-attendance-checkouts';
+    let checkoutStateByDate = loadCheckoutState();
 
     function normalizeForSearch(value) {
       return (value || '')
@@ -271,6 +336,66 @@
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .trim();
+    }
+    
+    function loadCheckoutState() {
+      try {
+        const stored = localStorage.getItem(CHECKOUT_STORAGE_KEY);
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        console.warn('No se pudo cargar el estado de salidas almacenado:', error);
+        return {};
+      }
+    }
+
+    function persistCheckoutState() {
+      try {
+        localStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(checkoutStateByDate));
+      } catch (error) {
+        console.warn('No se pudo guardar el estado de salidas.', error);
+      }
+    }
+
+    function getCheckoutStateForDate(dateStr) {
+      return checkoutStateByDate[dateStr] || {};
+    }
+
+    function setCheckoutStateForEmployee(dateStr, employeeId, value) {
+      if (!employeeId) return;
+      const key = String(employeeId);
+      if (!checkoutStateByDate[dateStr]) {
+        checkoutStateByDate[dateStr] = {};
+      }
+      if (value) {
+        checkoutStateByDate[dateStr][key] = true;
+      } else if (checkoutStateByDate[dateStr]) {
+        delete checkoutStateByDate[dateStr][key];
+        if (!Object.keys(checkoutStateByDate[dateStr]).length) {
+          delete checkoutStateByDate[dateStr];
+        }
+      }
+      persistCheckoutState();
+    }
+
+    function clearCheckoutStateForDate(dateStr) {
+      if (checkoutStateByDate[dateStr]) {
+        delete checkoutStateByDate[dateStr];
+        persistCheckoutState();
+      }
+    }
+
+    function applyCheckoutStateToEmployee(emp, dateStr = formatForInput(currentDate)) {
+      if (!emp) return emp;
+      const dayState = getCheckoutStateForDate(dateStr);
+      const key = String(emp.id ?? '');
+      emp.checkedOut = Boolean(dayState[key]);
+      return emp;
+    }
+
+    function mapServerEmployeesWithCheckout(serverEmployees, dateStr = formatForInput(currentDate)) {
+      return (serverEmployees || []).map(emp => applyCheckoutStateToEmployee(mapServerEmployee(emp), dateStr));
     }
     async function parseErrorResponse(response) {
       if (!response) return 'Error desconocido del servidor.';
@@ -347,7 +472,7 @@
           throw new Error('El servidor no devolvió la información del empleado creado.');
         }
 
-        const newEmployee = mapServerEmployee(payload.employee);
+        const newEmployee = applyCheckoutStateToEmployee(mapServerEmployee(payload.employee));
         employees.push(newEmployee);
         employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
         attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
@@ -375,10 +500,12 @@
 
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
-          employees = payload.employees.map(mapServerEmployee);
+          employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
         } else {
           employees = employees.filter(emp => String(emp.id) !== String(id));
         }
+
+        setCheckoutStateForEmployee(dateStr, id, false);
 
         if (typeof payload.hasAttendanceRecords === 'boolean') {
           attendanceHasRecords = payload.hasAttendanceRecords;
@@ -512,8 +639,8 @@
         }
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
-          employees = payload.employees.map(mapServerEmployee);
-          } else {
+          employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
+        } else {
           employees = [];
         }
         if (typeof payload.hasAttendanceRecords === 'boolean') {
@@ -551,7 +678,7 @@
         }
         const payload = await response.json();
         if (Array.isArray(payload.employees)) {
-          employees = payload.employees.map(mapServerEmployee);
+          employees = mapServerEmployeesWithCheckout(payload.employees);
           attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
           recalculateReadOnlyState();
           refreshUI();
@@ -599,7 +726,8 @@
         }
         const payload = await response.json();
         if (payload && payload.employee) {
-          const updated = mapServerEmployee(payload.employee);
+          const dateStr = formatForInput(currentDate);
+          const updated = applyCheckoutStateToEmployee(mapServerEmployee(payload.employee), dateStr);
           const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
           if (index !== -1) {
             employees[index] = updated;
@@ -726,10 +854,10 @@
         const deleteBtn = document.createElement('button');
         const attendanceWrapper = document.createElement('div');
         const checkButton = document.createElement('button');
-        const icon = document.createElement('i');
         const timeEl = document.createElement('div');
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
+        const isCheckedOut = Boolean(emp.checkedOut);
 
         card.className = 'employee-card glass-panel gap-3 rounded-lg p-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
         card.dataset.name = normalizeForSearch(emp.name || '');
@@ -781,16 +909,48 @@
           checkButton.classList.add('cursor-pointer');
         }
         if (isChecked) checkButton.classList.add('active');
+        if (isCheckedOut) checkButton.classList.add('checked-out');
         checkButton.dataset.id = String(emp.id);
         checkButton.setAttribute('aria-pressed', String(isChecked));
 
-        icon.dataset.feather = 'check';
-        if (!isChecked) icon.classList.add('opacity-0');
-        checkButton.appendChild(icon);
+        const iconWrapper = document.createElement('span');
+        iconWrapper.className = 'relative flex h-full w-full items-center justify-center';
 
-        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right sm:mt-2 sm:text-center' + (hasCheckInTime ? '' : ' hidden');
-        if (hasCheckInTime) {
+        const checkIcon = document.createElement('i');
+        checkIcon.dataset.feather = 'check';
+        checkIcon.setAttribute('data-role', 'check-icon');
+        checkIcon.className = 'transition-opacity duration-200';
+        if (!isChecked) checkIcon.classList.add('opacity-0');
+        if (isCheckedOut) checkIcon.classList.add('hidden');
+
+        const exitIcon = document.createElement('i');
+        exitIcon.dataset.feather = 'log-out';
+        exitIcon.setAttribute('data-role', 'exit-icon');
+        exitIcon.className = 'transition-opacity duration-200';
+        if (!isCheckedOut) exitIcon.classList.add('hidden');
+
+        iconWrapper.appendChild(checkIcon);
+        iconWrapper.appendChild(exitIcon);
+        checkButton.appendChild(iconWrapper);
+
+        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right sm:mt-2 sm:text-center';
+        if (isCheckedOut) {
+          timeEl.textContent = 'Salida registrada';
+          timeEl.classList.remove('text-emerald-600');
+          timeEl.classList.add('checkout');
+          timeEl.classList.remove('hidden');
+        } else if (hasCheckInTime) {
+
           timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
+          timeEl.classList.remove('hidden');
+          timeEl.classList.remove('checkout');
+          if (!timeEl.classList.contains('text-emerald-600')) {
+            timeEl.classList.add('text-emerald-600');
+          }
+        } else {
+          timeEl.textContent = '';
+          timeEl.classList.add('hidden');
+          timeEl.classList.remove('checkout');
         }
 
         attendanceWrapper.appendChild(checkButton);
@@ -930,7 +1090,9 @@
           checkedIn: false,
           attendanceRecorded: false,
           checkedInAt: null,
+          checkedOut: false,
         }));
+        clearCheckoutStateForDate(dateStr);
         attendanceHasRecords = false;
         recalculateReadOnlyState();
         refreshUI();
@@ -944,61 +1106,223 @@
         );
       }
     }
-
-    document.addEventListener('click', (e) => {
-      const mark = e.target.closest('.checkmark');
-      if (!mark || mark.disabled || isReadOnlyDate) return;
-
-      const employeeId = mark.getAttribute('data-id');
-      const emp = employees.find(x => String(x.id) === employeeId);
-      if (!emp) return;
-
-      const icon = mark.querySelector('svg, i');
-      const attendanceWrapper = mark.closest('.attendance-wrapper');
-      const timeEl = attendanceWrapper ? attendanceWrapper.querySelector('.attendance-time') : null;
-      const wasChecked = Boolean(emp.checkedIn);
-      const previousRecorded = Boolean(emp.attendanceRecorded);
-      const previousCheckedInAt = emp.checkedInAt;
-
-      if (wasChecked) {
-        const confirmed = confirm(`¿Quitar el registro de asistencia de ${emp.name || 'este colaborador'}?`);
-        if (!confirmed) return;
-
-        mark.classList.remove('active');
-        if (icon) icon.classList.add('opacity-0');
-        emp.checkedIn = false;
-        emp.checkedInAt = null;
-        emp.attendanceRecorded = false;
-        mark.setAttribute('aria-pressed', 'false');
-        if (timeEl) {
-          timeEl.textContent = '';
-          timeEl.classList.add('hidden');
-        }
-        attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
-        recalculateReadOnlyState();
-        updatePresentCount();
-        updateClearButtonState();
-        updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+    
+function updateActionSheetKeyboardOffset() {
+      if (!attendanceActionSheet) return;
+      const viewport = window.visualViewport;
+      if (!attendanceActionSheet.classList.contains('active')) {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
         return;
       }
-      
+      if (!viewport) {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+        return;
+      }
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      if (offset > 12) {
+        attendanceActionSheet.classList.add('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', `${offset}px`);
+      } else {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+      }
+    }
+if (window.visualViewport) {
+      const handleViewportChange = () => {
+        if (attendanceActionSheet && attendanceActionSheet.classList.contains('active')) {
+          updateActionSheetKeyboardOffset();
+        }
+      };
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+    }
+
+function openAttendanceActionSheet(context) {
+      if (!attendanceActionSheet) return;
+      pendingCheckAction = context;
+      const employeeName = context.emp?.name ? context.emp.name : 'este colaborador';
+      if (attendanceActionMessage) {
+        attendanceActionMessage.textContent = `Selecciona una opción para ${employeeName}.`;
+      }
+      attendanceActionSheet.classList.remove('hidden');
+      attendanceActionSheet.classList.add('active');
+      requestAnimationFrame(() => updateActionSheetKeyboardOffset());
+      }
+      function closeAttendanceActionSheet(clearContext = true) {
+      if (!attendanceActionSheet) return;
+      attendanceActionSheet.classList.remove('active', 'keyboard-open');
+      attendanceActionSheet.classList.add('hidden');
+      attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+      if (clearContext) {
+        pendingCheckAction = null;
+        }
+            }
+
+    function applyCheckInAction(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
       mark.classList.add('active');
-      if (icon) icon.classList.remove('opacity-0');
+      mark.classList.remove('checked-out');
+      mark.setAttribute('aria-pressed', 'true');
+      if (checkIcon) {
+        checkIcon.classList.remove('hidden');
+        checkIcon.classList.remove('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.add('hidden');
+      }
       const checkInIso = new Date().toISOString();
       emp.checkedIn = true;
       emp.checkedInAt = checkInIso;
+      emp.checkedOut = false;
       emp.attendanceRecorded = true;
-      mark.setAttribute('aria-pressed', 'true');
+      if (card) card.dataset.present = 'true';
       if (timeEl) {
         timeEl.textContent = `Registro: ${formatCheckInTime(checkInIso)}`;
         timeEl.classList.remove('hidden');
+        timeEl.classList.remove('checkout');
+        if (!timeEl.classList.contains('text-emerald-600')) {
+          timeEl.classList.add('text-emerald-600');
+        }
       }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, false);
       attendanceHasRecords = true;
       recalculateReadOnlyState();
       updatePresentCount();
       updateClearButtonState();
+      applyFilters();
       updateEmployeeCheckStatus(emp.id, true, { previousRecorded, previousCheckedInAt });
+      }
+
+    function applyRemoveAttendance(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
+      mark.classList.remove('active', 'checked-out');
+      mark.setAttribute('aria-pressed', 'false');
+      if (checkIcon) {
+        checkIcon.classList.remove('hidden');
+        checkIcon.classList.add('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.add('hidden');
+      }
+      emp.checkedIn = false;
+      emp.checkedOut = false;
+      emp.checkedInAt = null;
+      emp.attendanceRecorded = false;
+      if (card) card.dataset.present = 'false';
+      if (timeEl) {
+        timeEl.textContent = '';
+        timeEl.classList.add('hidden');
+        timeEl.classList.remove('checkout');
+        if (!timeEl.classList.contains('text-emerald-600')) {
+          timeEl.classList.add('text-emerald-600');
+        }
+      }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, false);
+      attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
+      recalculateReadOnlyState();
+      updatePresentCount();
+      updateClearButtonState();
+      applyFilters();
+      updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+    }
+
+    function applyCheckoutAttendance(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
+      mark.classList.remove('active');
+      mark.classList.add('checked-out');
+      mark.setAttribute('aria-pressed', 'false');
+      if (checkIcon) {
+        checkIcon.classList.add('hidden');
+        checkIcon.classList.add('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.remove('hidden');
+        exitIcon.classList.remove('opacity-0');
+      }
+      emp.checkedIn = false;
+      emp.checkedOut = true;
+      emp.checkedInAt = null;
+      emp.attendanceRecorded = false;
+      if (card) card.dataset.present = 'false';
+      if (timeEl) {
+        timeEl.textContent = 'Salida registrada';
+        timeEl.classList.remove('hidden');
+        timeEl.classList.add('checkout');
+        timeEl.classList.remove('text-emerald-600');
+      }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, true);
+      attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
+      recalculateReadOnlyState();
+      updatePresentCount();
+      updateClearButtonState();
+      applyFilters();
+      updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+    }
+
+    document.addEventListener('click', (event) => {
+      const mark = event.target.closest('.checkmark');
+      if (!mark || mark.disabled || isReadOnlyDate) return;
+
+      const employeeId = mark.getAttribute('data-id');
+      if (!employeeId) return;
+
+      const emp = employees.find(x => String(x.id) === employeeId);
+      if (!emp) return;
+
+      const attendanceWrapper = mark.closest('.attendance-wrapper');
+      const timeEl = attendanceWrapper ? attendanceWrapper.querySelector('.attendance-time') : null;
+      const checkIcon = mark.querySelector('[data-role="check-icon"]');
+      const exitIcon = mark.querySelector('[data-role="exit-icon"]');
+      const card = mark.closest('.employee-card');
+      const previousRecorded = Boolean(emp.attendanceRecorded);
+      const previousCheckedInAt = emp.checkedInAt;
+
+      if (emp.checkedIn || emp.checkedOut) {
+        openAttendanceActionSheet({ mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card });
+        return;
+      }
+
+      applyCheckInAction({ mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card });
     });
+
+    if (attendanceActionCancel) {
+      attendanceActionCancel.addEventListener('click', () => {
+        closeAttendanceActionSheet();
+      });
+    }
+
+    if (attendanceActionSheet) {
+      attendanceActionSheet.addEventListener('click', (event) => {
+        if (event.target === attendanceActionSheet) {
+          closeAttendanceActionSheet();
+        }
+      });
+    }
+
+    if (attendanceRemoveBtn) {
+      attendanceRemoveBtn.addEventListener('click', () => {
+        if (!pendingCheckAction) return;
+        const context = pendingCheckAction;
+        closeAttendanceActionSheet(false);
+        pendingCheckAction = null;
+        applyRemoveAttendance(context);
+      });
+    }
+
+    if (attendanceCheckoutBtn) {
+      attendanceCheckoutBtn.addEventListener('click', () => {
+        if (!pendingCheckAction) return;
+        const context = pendingCheckAction;
+        closeAttendanceActionSheet(false);
+        pendingCheckAction = null;
+        applyCheckoutAttendance(context);
+      });
+    }
 
     document.addEventListener('click', async (event) => {
       const deleteBtn = event.target.closest('.delete-employee-btn');
