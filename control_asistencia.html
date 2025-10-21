@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JSC - Control de Asistencia</title>
+  <link rel="icon" type="image/png" href="journey_no_bg.png" />
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -19,9 +20,58 @@
     body {
       font-family: 'Inter', sans-serif;
       min-height: 100vh;
-      background: url('journey_background.png') center/cover no-repeat fixed;
+      background-color: #03040c;
       color: #111827;
       position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 85% 15%, rgba(255, 212, 96, 0.55), rgba(255, 212, 96, 0) 55%),
+        radial-gradient(circle at 12% 80%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -10% -20%;
+      background-image:
+        radial-gradient(1.2px 1.2px at 20px 35px, rgba(255, 255, 255, 0.9) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 80px 120px, rgba(255, 248, 209, 0.85) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 140px 60px, rgba(255, 255, 255, 0.8) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 30px 160px, rgba(255, 245, 199, 0.75) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 160px 190px, rgba(255, 255, 255, 0.85) 45%, transparent 70%);
+      background-size: 220px 220px, 240px 240px, 260px 260px, 280px 280px, 300px 300px;
+      opacity: 0.75;
+      pointer-events: none;
+      z-index: -1;
+      animation: star-drift 120s linear infinite, star-twinkle 6s ease-in-out infinite;
+    }
+
+    @keyframes star-drift {
+      from {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+      }
+      to {
+        transform: translate3d(4%, -2%, 0) rotate(360deg);
+        background-position: -320px 180px, -260px 140px, -220px 120px, -180px 100px, -140px 80px;
+      }
+    }
+
+    @keyframes star-twinkle {
+      0%,
+      100% {
+        opacity: 0.55;
+      }
+      50% {
+        opacity: 0.95;
+      }
     }
 
     .glass-panel {
