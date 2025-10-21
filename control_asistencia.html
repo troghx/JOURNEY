@@ -285,7 +285,7 @@
       </div>
 
       <button id="clear-attendance-btn" title="Limpiar asistencias del día" aria-label="Limpiar asistencias del día"
-        class="bg-white text-rose-500 border border-rose-100 p-4 rounded-full shadow-lg hover:bg-rose-50 transition-colors flex items-center justify-center">
+        class="hidden bg-white text-rose-500 border border-rose-100 p-4 rounded-full shadow-lg hover:bg-rose-50 transition-colors flex items-center justify-center">
         <i data-feather="trash-2"></i>
       </button>
 
@@ -457,6 +457,16 @@
         appMenuToggle.classList.toggle('ring-emerald-400', isEditMode);
         appMenuToggle.classList.toggle('bg-white', isEditMode);
         appMenuToggle.classList.toggle('shadow-lg', isEditMode);
+      }
+      if (clearAttendanceBtn) {
+        const shouldHide = !isEditMode;
+        clearAttendanceBtn.classList.toggle('hidden', shouldHide);
+        if (shouldHide) {
+          clearAttendanceBtn.setAttribute('aria-hidden', 'true');
+          hideClearConfirmation();
+        } else {
+          clearAttendanceBtn.removeAttribute('aria-hidden');
+        }
       }
     }
 
