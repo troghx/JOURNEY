@@ -289,7 +289,7 @@
         <i data-feather="trash-2"></i>
       </button>
 
-      <button id="export-btn" title="Descargar asistencia (CSV)"
+      <button id="export-btn" title="Descargar asistencia (Excel)"
         class="bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
         <i data-feather="download"></i>
       </button>
@@ -1464,32 +1464,47 @@ function openAttendanceActionSheet(context) {
       }
     });
 
-    function exportCSV() {
-      const headers = ['fecha','id','nombre','puesto','departamento','presente'];
+    function exportExcel() {
       const dateStr = formatForInput(currentDate);
-      const escapeQuotes = (text = '') => `"${String(text).replace(/"/g, '""')}"`;
-      const rows = employees.map(e => [
+      const workbook = XLSX.utils.book_new();
+      const checkValue = '✓';
+      const uncheckValue = '✗';
+
+      const headerRow = ['Fecha', 'ID', 'Nombre', 'Puesto', 'Departamento', 'Asistencia', 'TOTAL FT', '', '', 'SI ASISTIÓ', 'NO ASISTIÓ'];
+      const employeeRows = employees.map((employee) => [
         dateStr,
-        e.id,
-        escapeQuotes(e.name),
-        escapeQuotes(e.position),
-        escapeQuotes(e.department),
-        e.checkedIn ? '1' : '0'
+        employee.id,
+        employee.name,
+        employee.position,
+        employee.department,
+        employee.checkedIn ? checkValue : uncheckValue,
       ]);
 
-      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'asistencia_' + dateStr + '.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...employeeRows]);
+
+      worksheet['J2'] = { v: checkValue };
+      worksheet['K2'] = { v: uncheckValue };
+      worksheet['G2'] = { t: 'n', f: 'CONTAR.SI(F:F,J2)' };
+
+      worksheet['!cols'] = [
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 32 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 4 },
+        { wch: 4 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Asistencia');
+      XLSX.writeFile(workbook, `asistencia_${dateStr}.xlsx`);
     }
 
-    document.getElementById('export-btn').addEventListener('click', exportCSV);
+    document.getElementById('export-btn').addEventListener('click', exportExcel);
 
     const importBtn = document.getElementById('import-btn');
     const importFileInput = document.getElementById('import-file');
