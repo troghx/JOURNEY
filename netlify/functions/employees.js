@@ -10,7 +10,29 @@ function resolveDatabaseUrl() {
     process.env.DATABASE_URL ||
     '';
 
-  return String(url).trim();
+  return sanitizeDatabaseUrl(String(url).trim());
+}
+
+function sanitizeDatabaseUrl(url) {
+  if (!url) return '';
+
+  try {
+    const parsed = new URL(url);
+
+    // Neon connection strings created through Netlify include channel binding,
+    // but the fetch-based driver used here does not support it. Leaving the
+    // parameter in place results in authentication failures and, ultimately,
+    // Netlify returning a 503 to the browser. We strip it before creating the
+    // client so the connection can succeed while keeping other query params.
+    if (parsed.searchParams.has('channel_binding')) {
+      parsed.searchParams.delete('channel_binding');
+    }
+
+    return parsed.toString();
+  } catch (error) {
+    console.warn('[employees] No se pudo sanitizar la URL de la base de datos:', error);
+    return url;
+  }
 }
 
 function looksLikePostgres(url) {
