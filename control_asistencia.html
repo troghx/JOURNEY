@@ -1000,7 +1000,7 @@
 
         actionsPanel.appendChild(deleteBtn);
 
-        attendanceWrapper.className = 'employee-attendance attendance-wrapper flex items-center gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
+        attendanceWrapper.className = 'employee-attendance attendance-wrapper flex flex-col items-end gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
 
         checkButton.className = 'checkmark h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors sm:h-10 sm:w-10';
         if (isReadOnlyDate) {
@@ -1035,7 +1035,7 @@
         iconWrapper.appendChild(exitIcon);
         checkButton.appendChild(iconWrapper);
 
-        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right sm:mt-2 sm:text-center';
+        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right mt-1 sm:mt-2 sm:text-center';
         if (isCheckedOut) {
           timeEl.textContent = 'Salida registrada';
           timeEl.classList.remove('text-emerald-600');
