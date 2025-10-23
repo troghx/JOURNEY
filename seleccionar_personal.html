@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSC - Selecciona el tipo de personal</title>
+  <link rel="icon" type="image/png" href="journey_no_bg.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #03040c;
+      color: #f9fafb;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 85% 15%, rgba(255, 212, 96, 0.55), rgba(255, 212, 96, 0) 55%),
+        radial-gradient(circle at 12% 80%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -10% -20%;
+      background-image:
+        radial-gradient(1.2px 1.2px at 20px 35px, rgba(255, 255, 255, 0.9) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 80px 120px, rgba(255, 248, 209, 0.85) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 140px 60px, rgba(255, 255, 255, 0.8) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 30px 160px, rgba(255, 245, 199, 0.75) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 160px 190px, rgba(255, 255, 255, 0.85) 45%, transparent 70%);
+      background-size: 220px 220px, 240px 240px, 260px 260px, 280px 280px, 300px 300px;
+      opacity: 0.75;
+      pointer-events: none;
+      z-index: -1;
+      animation: star-drift 120s linear infinite, star-twinkle 6s ease-in-out infinite;
+    }
+
+    @keyframes star-drift {
+      from {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+      }
+      to {
+        transform: translate3d(4%, -2%, 0) rotate(360deg);
+        background-position: -320px 180px, -260px 140px, -220px 120px, -180px 100px, -140px 80px;
+      }
+    }
+
+    @keyframes star-twinkle {
+      0%,
+      100% {
+        opacity: 0.55;
+      }
+      50% {
+        opacity: 0.95;
+      }
+    }
+
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .card-option {
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .card-option:hover {
+      transform: translateY(-4px);
+      border-color: rgba(16, 185, 129, 0.45);
+      box-shadow: 0 18px 40px rgba(16, 185, 129, 0.25);
+    }
+
+    .card-option[aria-disabled='true'] {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body class="relative flex items-center justify-center px-6 py-16">
+  <main class="glass-panel max-w-3xl w-full rounded-3xl px-8 py-12">
+    <div class="flex flex-col gap-10 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-3 max-w-md">
+        <a href="index.html" class="inline-flex items-center text-sm font-medium text-white/60 hover:text-white/80 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Volver al inicio
+        </a>
+        <h1 class="text-3xl font-semibold text-white">Selecciona el tipo de personal</h1>
+        <p class="text-base text-white/70 leading-relaxed">
+          Elige el módulo que deseas administrar. Seguimos construyendo una experiencia dedicada para cada equipo.
+        </p>
+      </div>
+      <img src="journey_no_bg.png" alt="JSC" class="h-20 w-20 object-contain self-start sm:self-center drop-shadow-xl" />
+    </div>
+
+    <div class="mt-12 grid gap-6 sm:grid-cols-2">
+      <button
+        type="button"
+        aria-disabled="true"
+        class="card-option glass-panel flex h-full flex-col rounded-2xl border border-white/10 px-6 py-8 text-left"
+      >
+        <span class="text-sm font-medium uppercase tracking-wide text-white/40">Próximamente</span>
+        <span class="mt-3 text-2xl font-semibold text-white">Personal Obrero</span>
+        <p class="mt-4 text-sm text-white/60 leading-relaxed">
+          Estamos preparando herramientas específicas para el control de asistencia de personal obrero.
+        </p>
+      </button>
+
+      <a
+        href="control_asistencia.html"
+        class="card-option glass-panel flex h-full flex-col rounded-2xl border border-white/10 px-6 py-8 text-left"
+      >
+        <span class="text-sm font-medium uppercase tracking-wide text-emerald-200/80">Disponible</span>
+        <span class="mt-3 text-2xl font-semibold text-white">Personal Hotel</span>
+        <p class="mt-4 text-sm text-white/70 leading-relaxed">
+          Gestiona entradas, salidas y reportes de asistencia para el personal del hotel.
+        </p>
+        <span class="mt-8 inline-flex items-center text-sm font-medium text-emerald-200">
+          Ir al módulo
+          <svg xmlns="http://www.w3.org/2000/svg" class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </a>
+    </div>
+  </main>
+</body>
+</html>
