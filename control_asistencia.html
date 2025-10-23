@@ -149,6 +149,28 @@
       border-color: rgba(229, 231, 235, 0.7);
     }
     .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
+    .app-options-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(17, 24, 39, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .app-options-sheet.active {
+      display: flex;
+    }
+    .app-options-card {
+      width: 100%;
+      max-width: 24rem;
+      border-radius: 1rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+    }
+    body.modal-open {
+      overflow: hidden;
+    }
         @media (max-width: 639px) {
       .employee-card {
         display: grid;
@@ -370,6 +392,48 @@
       </div>
     </div>
   </div>
+  <div
+      id="app-mode-sheet"
+      class="app-options-sheet hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-mode-title"
+    >
+      <div class="app-options-card glass-panel w-full p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="app-mode-title" class="text-lg font-semibold text-gray-800">¿Qué deseas hacer?</h2>
+            <p class="mt-1 text-sm text-gray-500">Elige una acción para continuar.</p>
+          </div>
+          <button
+            id="app-mode-close"
+            type="button"
+            class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Cerrar opciones"
+          >
+            <i data-feather="x"></i>
+          </button>
+        </div>
+        <div class="mt-5 space-y-3">
+          <button
+            id="app-mode-edit-btn"
+            type="button"
+            class="w-full px-4 py-3 rounded-lg bg-emerald-500 text-white text-sm font-medium shadow hover:bg-emerald-600 transition-colors flex items-center justify-between"
+          >
+            <span id="app-mode-edit-text">Activar modo edición</span>
+            <span id="app-mode-edit-status" class="text-xs uppercase tracking-wide text-emerald-100 hidden">Activo</span>
+          </button>
+          <a
+            id="app-mode-modules-link"
+            href="seleccionar_personal.html"
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-between"
+          >
+            <span>Seleccionar módulos</span>
+            <i data-feather="grid"></i>
+          </a>
+        </div>
+      </div>
+    </div>
 
   <script>
     const API_BASE_URL = '/.netlify/functions/employees';
@@ -408,6 +472,12 @@
     const editModeToggle = document.getElementById('edit-mode-toggle');
     const editModeLabel = document.getElementById('edit-mode-label');
     const editModeStatus = document.getElementById('edit-mode-status');
+    const appModeSheet = document.getElementById('app-mode-sheet');
+    const appModeEditBtn = document.getElementById('app-mode-edit-btn');
+    const appModeEditText = document.getElementById('app-mode-edit-text');
+    const appModeEditStatus = document.getElementById('app-mode-edit-status');
+    const appModeClose = document.getElementById('app-mode-close');
+    const appModeModulesLink = document.getElementById('app-mode-modules-link');
     let clearToastTimeout = null;
     let showPresentOnly = false;
     let pendingCheckAction = null;
@@ -488,6 +558,46 @@
       }
     }
 
+    function updateAppModeOptionTexts() {
+      if (appModeEditText) {
+        appModeEditText.textContent = isEditMode ? 'Desactivar modo edición' : 'Activar modo edición';
+      }
+      if (appModeEditStatus) {
+        appModeEditStatus.classList.toggle('hidden', !isEditMode);
+      }
+      if (appModeEditBtn) {
+        appModeEditBtn.setAttribute('aria-pressed', String(isEditMode));
+        appModeEditBtn.classList.toggle('bg-emerald-500', !isEditMode);
+        appModeEditBtn.classList.toggle('hover:bg-emerald-600', !isEditMode);
+        appModeEditBtn.classList.toggle('text-white', !isEditMode);
+        appModeEditBtn.classList.toggle('bg-emerald-100', isEditMode);
+        appModeEditBtn.classList.toggle('text-emerald-700', isEditMode);
+        appModeEditBtn.classList.toggle('hover:bg-emerald-200', isEditMode);
+        appModeEditBtn.classList.toggle('border', isEditMode);
+        appModeEditBtn.classList.toggle('border-emerald-200', isEditMode);
+      }
+    }
+
+    function openAppModeSheet() {
+      if (!appModeSheet) return;
+      updateAppModeOptionTexts();
+      appModeSheet.classList.remove('hidden');
+      appModeSheet.classList.add('active');
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        if (appModeEditBtn) {
+          appModeEditBtn.focus();
+        }
+      });
+    }
+
+    function closeAppModeSheet() {
+      if (!appModeSheet) return;
+      appModeSheet.classList.remove('active');
+      appModeSheet.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
+
     function updateEditModeUI() {
       if (editModeLabel) {
         editModeLabel.textContent = isEditMode ? 'Desactivar modo edición' : 'Activar modo edición';
@@ -519,6 +629,7 @@
           clearAttendanceBtn.removeAttribute('aria-hidden');
         }
       }
+      updateAppModeOptionTexts();
     }
 
     function setEditMode(value) {
@@ -1193,8 +1304,35 @@
 
     if (editModeToggle) {
       editModeToggle.addEventListener('click', () => {
-        setEditMode(!isEditMode);
         closeAppMenu();
+        openAppModeSheet();
+      });
+    }
+
+    if (appModeEditBtn) {
+      appModeEditBtn.addEventListener('click', () => {
+        setEditMode(!isEditMode);
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeClose) {
+      appModeClose.addEventListener('click', () => {
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeModulesLink) {
+      appModeModulesLink.addEventListener('click', () => {
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeSheet) {
+      appModeSheet.addEventListener('click', (event) => {
+        if (event.target === appModeSheet) {
+          closeAppModeSheet();
+        }
       });
     }
 
@@ -1617,6 +1755,7 @@ function openAttendanceActionSheet(context) {
         hideClearConfirmation();
         hideAddEmployeeModal();
         closeAppMenu();
+        closeAppModeSheet();
       }
     });
 
