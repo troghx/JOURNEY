@@ -2,26 +2,105 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=control_asistencia.html" />
-  <link rel="canonical" href="control_asistencia.html" />
-  <title>Redireccionando a Control de Asistencia</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSC - Inicio</title>
+  <link rel="icon" type="image/png" href="journey_no_bg.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      color-scheme: dark;
+    }
+    
     body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-family: 'Inter', sans-serif;
       min-height: 100vh;
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background-color: #f9fafb;
-      color: #111827;
+      background-color: #03040c;
+      color: #f9fafb;
+      position: relative;
+      overflow: hidden;
     }
-    a {
-      color: #047857;
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 85% 15%, rgba(255, 212, 96, 0.55), rgba(255, 212, 96, 0) 55%),
+        radial-gradient(circle at 12% 80%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -10% -20%;
+      background-image:
+        radial-gradient(1.2px 1.2px at 20px 35px, rgba(255, 255, 255, 0.9) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 80px 120px, rgba(255, 248, 209, 0.85) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 140px 60px, rgba(255, 255, 255, 0.8) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 30px 160px, rgba(255, 245, 199, 0.75) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 160px 190px, rgba(255, 255, 255, 0.85) 45%, transparent 70%);
+      background-size: 220px 220px, 240px 240px, 260px 260px, 280px 280px, 300px 300px;
+      opacity: 0.75;
+      pointer-events: none;
+      z-index: -1;
+      animation: star-drift 120s linear infinite, star-twinkle 6s ease-in-out infinite;
+    }
+
+    @keyframes star-drift {
+      from {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+      }
+      to {
+        transform: translate3d(4%, -2%, 0) rotate(360deg);
+        background-position: -320px 180px, -260px 140px, -220px 120px, -180px 100px, -140px 80px;
+      }
+    }
+
+    @keyframes star-twinkle {
+      0%,
+      100% {
+        opacity: 0.55;
+      }
+      50% {
+        opacity: 0.95;
+      }
+    }
+
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
   </style>
 </head>
-<body>
-  <p>Redirigiendo… Si no ocurre automáticamente, <a href="control_asistencia.html">haz clic aquí</a>.</p>
+<body class="relative flex items-center justify-center px-6 py-16">
+  <main class="glass-panel max-w-md w-full rounded-3xl px-8 py-12 text-center space-y-10">
+    <div class="space-y-4">
+      <div class="flex justify-center">
+        <img src="journey_no_bg.png" alt="JSC" class="h-24 w-24 object-contain drop-shadow-xl" />
+      </div>
+      <h1 class="text-3xl font-semibold text-white tracking-tight">Bienvenido a Journey Staff Control</h1>
+      <p class="text-base text-white/70 leading-relaxed">
+        Administra la asistencia de tu personal con una experiencia simple y enfocada.
+      </p>
+    </div>
+
+    <div class="space-y-4">
+      <a
+        href="seleccionar_personal.html"
+        class="inline-flex w-full items-center justify-center rounded-full bg-emerald-500 px-6 py-3 text-base font-semibold text-emerald-950 shadow-lg shadow-emerald-500/40 transition hover:bg-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
+      >
+        Iniciar Sesión
+      </a>
+      <p class="text-xs text-white/50">Esta es una vista previa en desarrollo.</p>
+    </div>
+  </main>
 </body>
 </html>
