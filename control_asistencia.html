@@ -254,19 +254,20 @@
           <h1 class="hidden text-xl font-bold text-gray-800 sm:block">JSC</h1>
           <span class="sr-only">JSC</span>
         </div>
-        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-            <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
+        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600 w-full sm:w-auto">
+            <button id="add-employee-btn" class="order-1 sm:order-none flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
             <i data-feather="user-plus" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Agregar personal</span>
             <span class="sr-only">Agregar nuevo personal</span>
           </button>
-          <button id="import-btn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
+          <div id="stats-mobile-mount" class="order-2 sm:hidden flex-1 min-w-[180px]"></div>
+          <button id="import-btn" class="order-3 sm:order-none w-full sm:w-auto flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
             <i data-feather="upload" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Importar desde Excel</span>
             <span class="sr-only">Importar empleados desde Excel</span>
           </button>
           <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
-          <button id="date-selector" class="hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
+          <button id="date-selector" class="order-4 sm:order-none w-full sm:w-auto hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span id="current-date" class="hidden sm:inline"></span>
             <span class="sr-only">Seleccionar fecha</span>
@@ -337,10 +338,12 @@
       </div>
 
       <!-- Stats -->
-      <div class="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2">
-        <div class="glass-panel p-4 rounded-lg">
-          <div class="text-gray-500 text-sm">Total empleados</div>
-          <div id="total-count" class="text-2xl font-bold text-gray-800">0</div>
+      <div id="stats-default-container" class="hidden sm:block mb-6">
+        <div id="stats-section" class="grid grid-cols-2 gap-3 w-full min-w-0">
+          <div class="glass-panel p-4 rounded-lg">
+            <div class="text-gray-500 text-sm">Total empleados</div>
+            <div id="total-count" data-total-count class="text-2xl font-bold text-gray-800">0</div>
+          </div>
         </div>
         <button
           id="present-filter-btn"
@@ -464,6 +467,11 @@
     const searchClearButton = document.getElementById('search-clear');
     const readOnlyBanner = document.getElementById('read-only-banner');
     const presentFilterBtn = document.getElementById('present-filter-btn');
+    const statsSection = document.getElementById('stats-section');
+    const statsDefaultContainer = document.getElementById('stats-default-container');
+    const statsMobileMount = document.getElementById('stats-mobile-mount');
+    const totalCountElements = document.querySelectorAll('[data-total-count]');
+    const presentCountElements = document.querySelectorAll('[data-present-count]');
     const addEmployeeBtn = document.getElementById('add-employee-btn');
     const addEmployeeModal = document.getElementById('add-employee-modal');
     const addEmployeeForm = document.getElementById('add-employee-form');
@@ -505,6 +513,40 @@
 
     const CHECKOUT_STORAGE_KEY = 'journey-attendance-checkouts';
     let checkoutStateByDate = loadCheckoutState();
+
+    const mobileStatsMediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 639px)') : null;
+
+    function moveStatsToMobile() {
+      if (!statsSection || !statsMobileMount) return;
+      if (statsMobileMount.contains(statsSection)) return;
+      statsMobileMount.appendChild(statsSection);
+    }
+
+    function moveStatsToDesktop() {
+      if (!statsSection || !statsDefaultContainer) return;
+      if (statsDefaultContainer.contains(statsSection)) return;
+      statsDefaultContainer.appendChild(statsSection);
+    }
+
+    function handleStatsPlacement(event) {
+      if (!event) return;
+      if (event.matches) {
+        moveStatsToMobile();
+      } else {
+        moveStatsToDesktop();
+      }
+    }
+
+    if (mobileStatsMediaQuery) {
+      handleStatsPlacement(mobileStatsMediaQuery);
+      if (typeof mobileStatsMediaQuery.addEventListener === 'function') {
+        mobileStatsMediaQuery.addEventListener('change', handleStatsPlacement);
+      } else if (typeof mobileStatsMediaQuery.addListener === 'function') {
+        mobileStatsMediaQuery.addListener(handleStatsPlacement);
+      }
+    } else {
+      moveStatsToDesktop();
+    }
 
     function normalizeForSearch(value) {
       return (value || '')
@@ -1445,12 +1487,17 @@
     }
 
     function updatePresentCount() {
-      const presentCount = employees.filter(e => e.checkedIn).length;
-      document.getElementById('present-count').textContent = presentCount;
+      const presentCount = employees.filter((employee) => employee.checkedIn).length;
+      presentCountElements.forEach((element) => {
+        element.textContent = presentCount;
+      });
     }
     
     function updateTotalCount() {
-      document.getElementById('total-count').textContent = employees.length;
+      const totalCount = employees.length;
+      totalCountElements.forEach((element) => {
+        element.textContent = totalCount;
+      });
     }
 
     function updateReadOnlyBanner() {
