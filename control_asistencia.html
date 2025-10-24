@@ -178,7 +178,8 @@
     }
     .stats-container {
       display: flex;
-      align-items: stretch;
+      align-items: center;
+      justify-content: flex-start;
       gap: 0.75rem;
       flex-wrap: wrap;
     }
@@ -188,15 +189,46 @@
       flex-direction: column;
       justify-content: center;
       gap: 0.35rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
     }
     .stat-card--desktop {
       display: flex;
     }
     .stat-card--interactive {
-      align-items: flex-start;
+      align-items: center;
+      text-align: center;
+      gap: 0.5rem;
+    }
+    .stat-card--interactive.glass-panel {
+      background: rgba(15, 23, 42, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: none;
+      color: #f9fafb;
+    }
+    .stat-card--interactive .stat-label {
+      color: rgba(229, 231, 235, 0.85);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stat-card--interactive .separator {
+      color: rgba(229, 231, 235, 0.75);
+    }
+    .stat-card--interactive [data-present-count] {
+      color: #34d399;
+    }
+    .stat-card--interactive [data-total-count] {
+      color: rgba(243, 244, 246, 0.9);
+    }
+    .stat-value--desktop {
+      display: none;
     }
     .stat-compact {
-      display: none;
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.35rem;
     }
     .stat-value {
       line-height: 1.2;
@@ -223,40 +255,16 @@
         grid-area: attendance;
         justify-self: flex-end;
       }
-      #stats-mobile-mount {
-        width: 100%;
-      }
       .stats-container {
-        display: flex;
-        justify-content: center;
         width: 100%;
+        justify-content: center;
       }
       .stats-container .stat-card {
-        padding: 0.5rem 0.75rem;
-        border-radius: 0.65rem;
+        min-width: min(220px, 100%);
       }
-      .stat-card--desktop {
-        display: none;
-      }
-      .stat-card--interactive {
-        align-items: center;
-        text-align: center;
-        gap: 0.25rem;
-      }
-      .stat-card--interactive .stat-label,
-      .stat-card--interactive .stat-value--desktop {
-        display: none;
-      }
-      .stat-card--interactive .stat-compact {
-        display: inline-flex;
-        align-items: baseline;
+      #stats-mobile-mount {
+        width: auto;
         justify-content: center;
-        gap: 0.35rem;
-      }
-      .stat-card--interactive .stat-compact .separator {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #9ca3af;
       }
     }
     
@@ -318,15 +326,15 @@
               <button
                 id="present-filter-btn"
                 type="button"
-                class="stat-card stat-card--interactive glass-panel px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50 w-full sm:w-auto max-w-[220px] sm:max-w-none"
+                class="stat-card stat-card--interactive glass-panel px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-center cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-500/10 w-auto max-w-[220px] sm:max-w-none"
                 aria-pressed="false"
               >
-                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide hidden sm:block">Presentes hoy</div>
+                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide">Presentes hoy</div>
                 <div class="sr-only sm:hidden">
                   Presentes hoy: <span data-present-count>0</span> de <span data-total-count>0</span> empleados.
                 </div>
                 <div id="present-count" data-present-count class="stat-value stat-value--desktop text-xl font-semibold text-emerald-600">0</div>
-                <div class="stat-compact" aria-hidden="true">
+                <div class="stat-compact">
                   <span data-present-count class="stat-value text-lg font-semibold text-emerald-600">0</span>
                   <span class="separator">/</span>
                   <span data-total-count class="stat-value text-lg font-semibold text-gray-800">0</span>
