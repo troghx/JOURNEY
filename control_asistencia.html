@@ -177,24 +177,28 @@
       overflow: hidden;
     }
     .stats-container {
-      width: 100%;
+      display: flex;
+      align-items: stretch;
+      gap: 0.75rem;
+      width: auto;
+      flex-wrap: wrap;
     }
-      .stat-card {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 0.35rem;
-      }
-      .stat-card--desktop {
-        display: flex;
-      }
-      .stat-card--interactive {
-        align-items: flex-start;
-      }
-      .stat-compact {
-        display: none;
-      }
+    .stats-container .stat-card {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+    .stat-card--desktop {
+      display: flex;
+    }
+    .stat-card--interactive {
+      align-items: flex-start;
+    }
+    .stat-compact {
+      display: none;
+    }
     .stat-value {
       line-height: 1.2;
     }
@@ -273,8 +277,8 @@
   <div class="min-h-screen pb-20">
     <!-- Header -->
     <header class="glass-panel sticky top-0 z-10">
-      <div class="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center space-x-2">
+      <div class="container mx-auto px-4 py-2 flex flex-wrap items-center gap-3 sm:gap-4">
+        <div class="flex items-center gap-3 min-w-0">
           <div class="relative">
             <button
               id="app-menu-toggle"
@@ -307,23 +311,48 @@
               </button>
             </div>
           </div>
-          <h1 class="hidden text-xl font-bold text-gray-800 sm:block">JSC</h1>
+          <h1 class="hidden text-lg font-semibold text-gray-800 sm:block">JSC</h1>
           <span class="sr-only">JSC</span>
+          <div id="stats-default-container" class="hidden sm:flex items-center gap-3 min-w-0">
+            <div id="stats-section" class="stats-container">
+              <div class="stat-card stat-card--desktop glass-panel px-3 py-2 rounded-lg">
+                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide">Total empleados</div>
+                <div id="total-count" data-total-count class="stat-value text-xl font-semibold text-gray-800">0</div>
+              </div>
+              <button
+                id="present-filter-btn"
+                type="button"
+                class="stat-card stat-card--interactive glass-panel px-3 py-2 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
+                aria-pressed="false"
+              >
+                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide hidden sm:block">Presentes hoy</div>
+                <div class="sr-only sm:hidden">
+                  Presentes hoy: <span data-present-count>0</span> de <span data-total-count>0</span> empleados.
+                </div>
+                <div id="present-count" data-present-count class="stat-value stat-value--desktop text-xl font-semibold text-emerald-600">0</div>
+                <div class="stat-compact" aria-hidden="true">
+                  <span data-present-count class="stat-value text-lg font-semibold text-emerald-600">0</span>
+                  <span class="separator">/</span>
+                  <span data-total-count class="stat-value text-lg font-semibold text-gray-800">0</span>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600 w-full sm:w-auto">
-            <button id="add-employee-btn" class="order-1 sm:order-none flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
-            <i data-feather="user-plus" class="w-5 h-5"></i>
-            <span class="hidden sm:inline">Agregar personal</span>
-            <span class="sr-only">Agregar nuevo personal</span>
-          </button>
-          <div id="stats-mobile-mount" class="order-2 sm:hidden flex w-full items-stretch gap-2"></div>
-          <button id="import-btn" class="order-3 sm:order-none flex items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
+        <div class="flex flex-wrap items-center gap-2 text-sm text-gray-600 w-full sm:w-auto sm:ml-auto sm:justify-end">
+          <div id="stats-mobile-mount" class="sm:hidden w-full flex items-stretch gap-2 order-3 sm:order-none"></div>
+          <button id="import-btn" class="flex items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
             <i data-feather="upload" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Importar desde Excel</span>
             <span class="sr-only">Importar empleados desde Excel</span>
           </button>
+          <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-2 sm:order-none">
+            <i data-feather="user-plus" class="w-5 h-5"></i>
+            <span class="hidden sm:inline">Agregar personal</span>
+            <span class="sr-only">Agregar nuevo personal</span>
+          </button>
           <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
-          <button id="date-selector" class="order-4 sm:order-none w-full sm:w-auto hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
+          <button id="date-selector" class="order-4 sm:order-none w-full sm:w-auto hover:bg-gray-100 px-3 py-2 rounded-lg flex items-center space-x-2">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span id="current-date" class="hidden sm:inline"></span>
             <span class="sr-only">Seleccionar fecha</span>
@@ -391,33 +420,6 @@
           </button>
         </div>
 
-      </div>
-
-      <!-- Stats -->
-      <div id="stats-default-container" class="hidden sm:block mb-6">
-        <div id="stats-section" class="stats-container sm:grid sm:grid-cols-2 sm:gap-3 w-full min-w-0">
-          <div class="stat-card stat-card--desktop glass-panel p-4 rounded-lg">
-            <div class="stat-label text-gray-500 text-sm">Total empleados</div>
-            <div id="total-count" data-total-count class="stat-value text-2xl font-bold text-gray-800">0</div>
-          </div>
-          <button
-            id="present-filter-btn"
-            type="button"
-            class="stat-card stat-card--interactive glass-panel p-4 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
-            aria-pressed="false"
-          >
-            <div class="stat-label text-gray-500 text-sm hidden sm:block">Presentes hoy</div>
-            <div class="sr-only sm:hidden">
-              Presentes hoy: <span data-present-count>0</span> de <span data-total-count>0</span> empleados.
-            </div>
-            <div id="present-count" data-present-count class="stat-value stat-value--desktop text-2xl font-bold text-emerald-600">0</div>
-            <div class="stat-compact" aria-hidden="true">
-              <span data-present-count class="stat-value text-xl font-semibold text-emerald-600">0</span>
-              <span class="separator">/</span>
-              <span data-total-count class="stat-value text-xl font-semibold text-gray-800">0</span>
-            </div>
-          </button>
-        </div>
       </div>
 
       <div id="read-only-banner" class="hidden glass-panel mb-6 p-4 rounded-lg text-sm text-gray-700"></div>
