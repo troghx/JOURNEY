@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JSC - Inicio</title>
   <link rel="icon" type="image/png" href="journey_no_bg.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+  />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     :root {
       color-scheme: dark;
@@ -78,13 +83,24 @@
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
+  
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body class="relative flex items-center justify-center px-6 py-16">
   <main class="glass-panel max-w-md w-full rounded-3xl px-8 py-12 text-center space-y-10">
     <div class="space-y-4">
       <div class="flex justify-center">
-        <img src="journey_no_bg.png" alt="JSC" class="h-24 w-24 object-contain drop-shadow-xl" />
+        <img src="journey_no_bg.png" alt="JSC" class="h-24 w-24 object-contain drop-shadow-xl" loading="lazy" />
       </div>
       <h1 class="text-3xl font-semibold text-white tracking-tight">JSC</h1>
       <p class="text-base text-white/70 leading-relaxed">
