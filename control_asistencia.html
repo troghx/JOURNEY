@@ -236,13 +236,35 @@
     .header-compact {
       transition: padding 0.2s ease;
     }
+    .header-compact .header-inner {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+    .header-compact .header-actions {
+      flex: 1 1 auto;
+      min-width: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .header-compact .header-actions::-webkit-scrollbar {
+      display: none;
+    }
     @media (max-width: 639px) {
       .header-compact {
         padding-top: 0.5rem;
         padding-bottom: 0.5rem;
       }
+      .header-compact .header-inner {
+        gap: 0.5rem;
+      }
       .header-compact .header-actions {
-        row-gap: 0.5rem;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+      }
+      .header-compact .header-actions > * {
+        flex: 0 0 auto;
       }
     }
     @media (max-width: 639px) {
@@ -297,7 +319,7 @@
   <div class="min-h-screen pb-20">
     <!-- Header -->
     <header class="glass-panel sticky top-0 z-10 header-compact">
-      <div class="container mx-auto px-4 py-1.5 sm:py-2 flex flex-wrap items-start sm:items-center gap-2.5 sm:gap-4">
+      <div class="header-inner container mx-auto px-4 py-1 sm:py-2 flex items-center justify-between gap-2.5 sm:gap-4">
         <div class="flex items-center gap-3 min-w-0">
           <div class="relative">
             <button
@@ -355,20 +377,20 @@
             </div>
           </div>
         </div>
-        <div class="header-actions flex flex-wrap items-start sm:items-center gap-1.5 sm:gap-2 text-sm text-gray-600 w-full sm:w-auto sm:ml-auto sm:justify-end">
-          <div id="stats-mobile-mount" class="sm:hidden w-full flex items-stretch gap-2 order-3 sm:order-none"></div>
-          <button id="import-btn" class="flex items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
+        <div class="header-actions flex flex-nowrap sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 pr-1 text-sm text-gray-600 overflow-x-auto sm:overflow-visible">
+          <div id="stats-mobile-mount" class="sm:hidden flex flex-shrink-0 items-stretch gap-2 order-3 sm:order-none"></div>
+          <button id="import-btn" class="flex flex-shrink-0 items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
             <i data-feather="upload" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Importar desde Excel</span>
             <span class="sr-only">Importar empleados desde Excel</span>
           </button>
-          <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-2 sm:order-none">
+          <button id="add-employee-btn" class="flex flex-shrink-0 items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-2 sm:order-none">
             <i data-feather="user-plus" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Agregar personal</span>
             <span class="sr-only">Agregar nuevo personal</span>
           </button>
           <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
-          <button id="date-selector" class="order-4 sm:order-none w-full sm:w-auto hover:bg-gray-100 px-3 py-2 rounded-lg flex items-center space-x-2">
+          <button id="date-selector" class="order-4 sm:order-none flex flex-shrink-0 items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-lg">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span id="current-date" class="hidden sm:inline"></span>
             <span class="sr-only">Seleccionar fecha</span>
