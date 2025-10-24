@@ -180,7 +180,6 @@
       display: flex;
       align-items: stretch;
       gap: 0.75rem;
-      width: auto;
       flex-wrap: wrap;
     }
     .stats-container .stat-card {
@@ -230,10 +229,11 @@
       .stats-container {
         display: flex;
         justify-content: center;
+        width: 100%;
       }
       .stats-container .stat-card {
-        padding: 0.65rem 0.85rem;
-        border-radius: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.65rem;
       }
       .stat-card--desktop {
         display: none;
@@ -314,15 +314,11 @@
           <h1 class="hidden text-lg font-semibold text-gray-800 sm:block">JSC</h1>
           <span class="sr-only">JSC</span>
           <div id="stats-default-container" class="hidden sm:flex items-center gap-3 min-w-0">
-            <div id="stats-section" class="stats-container">
-              <div class="stat-card stat-card--desktop glass-panel px-3 py-2 rounded-lg">
-                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide">Total empleados</div>
-                <div id="total-count" data-total-count class="stat-value text-xl font-semibold text-gray-800">0</div>
-              </div>
+            <div id="stats-section" class="stats-container w-full sm:w-auto justify-center sm:justify-start">
               <button
                 id="present-filter-btn"
                 type="button"
-                class="stat-card stat-card--interactive glass-panel px-3 py-2 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50"
+                class="stat-card stat-card--interactive glass-panel px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-50 w-full sm:w-auto max-w-[220px] sm:max-w-none"
                 aria-pressed="false"
               >
                 <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide hidden sm:block">Presentes hoy</div>
