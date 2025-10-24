@@ -7,16 +7,21 @@
   <link rel="icon" type="image/png" href="journey_no_bg.png" />
 
   <!-- Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+  />
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Feather Icons (single include) -->
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js" defer></script>
 
-    <!-- SheetJS (Excel parsing) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS (Excel parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body {
       font-family: 'Inter', sans-serif;
       min-height: 100vh;
@@ -194,6 +199,17 @@
         justify-self: flex-end;
       }
     }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 
@@ -212,7 +228,7 @@
               aria-expanded="false"
               aria-controls="app-menu"
             >
-              <img src="journey_no_bg.png" alt="JSC Logo" class="h-8 w-8 object-contain" />
+              <img src="journey_no_bg.png" alt="JSC Logo" class="h-8 w-8 object-contain" loading="lazy" />
               <span class="sr-only">Abrir menú principal</span>
             </button>
             <div
@@ -240,18 +256,18 @@
         </div>
         <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
             <button id="add-employee-btn" class="flex items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded transition-colors">
-            <i data-feather="user-plus"></i>
+            <i data-feather="user-plus" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Agregar personal</span>
             <span class="sr-only">Agregar nuevo personal</span>
           </button>
           <button id="import-btn" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded transition-colors">
-            <i data-feather="upload"></i>
+            <i data-feather="upload" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Importar desde Excel</span>
             <span class="sr-only">Importar empleados desde Excel</span>
           </button>
           <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
           <button id="date-selector" class="hover:bg-gray-100 px-2 py-1 rounded flex items-center space-x-2">
-            <i data-feather="calendar"></i>
+            <i data-feather="calendar" class="w-5 h-5"></i>
             <span id="current-date" class="hidden sm:inline"></span>
             <span class="sr-only">Seleccionar fecha</span>
           </button>
@@ -314,7 +330,7 @@
             aria-hidden="true"
           >
             <span class="sr-only">Limpiar búsqueda</span>
-            <i data-feather="x"></i>
+            <i data-feather="x" class="w-4 h-4"></i>
           </button>
         </div>
 
@@ -359,12 +375,12 @@
 
       <button id="clear-attendance-btn" title="Limpiar asistencias del día" aria-label="Limpiar asistencias del día"
         class="hidden bg-white text-rose-500 border border-rose-100 p-4 rounded-full shadow-lg hover:bg-rose-50 transition-colors flex items-center justify-center">
-        <i data-feather="trash-2"></i>
+        <i data-feather="trash-2" class="w-5 h-5"></i>
       </button>
 
       <button id="export-btn" title="Descargar asistencia (Excel)"
         class="bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
-        <i data-feather="download"></i>
+        <i data-feather="download" class="w-5 h-5"></i>
       </button>
     </div>
       
@@ -378,7 +394,7 @@
             </p>
           </div>
           <button id="attendance-action-cancel" class="p-2 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Cerrar">
-            <i data-feather="x"></i>
+            <i data-feather="x" class="w-4 h-4"></i>
           </button>
         </div>
         <div class="mt-5 space-y-3">
@@ -411,7 +427,7 @@
             class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Cerrar opciones"
           >
-            <i data-feather="x"></i>
+            <i data-feather="x" class="w-4 h-4"></i>
           </button>
         </div>
         <div class="mt-5 space-y-3">
@@ -429,7 +445,7 @@
             class="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-between"
           >
             <span>Seleccionar módulos</span>
-            <i data-feather="grid"></i>
+            <i data-feather="grid" class="w-4 h-4"></i>
           </a>
         </div>
       </div>
@@ -478,9 +494,14 @@
     const appModeEditStatus = document.getElementById('app-mode-edit-status');
     const appModeClose = document.getElementById('app-mode-close');
     const appModeModulesLink = document.getElementById('app-mode-modules-link');
+    const currentDateLabel = document.getElementById('current-date');
+    const iconTemplate = document.createElement('template');
+    const iconCache = new Map();
+    const ICON_DEFAULT_CLASS = 'w-4 h-4';
     let clearToastTimeout = null;
     let showPresentOnly = false;
     let pendingCheckAction = null;
+    let filterRaf = null;
 
     const CHECKOUT_STORAGE_KEY = 'journey-attendance-checkouts';
     let checkoutStateByDate = loadCheckoutState();
@@ -492,6 +513,59 @@
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .trim();
+    }
+    
+    function attachComputedFields(employee) {
+      if (!employee) return employee;
+      employee.normalizedName = normalizeForSearch(employee.name || '');
+      return employee;
+    }
+
+    function createIcon(name, { className = ICON_DEFAULT_CLASS, strokeWidth = 2 } = {}) {
+      if (!window.feather || !feather.icons || !feather.icons[name]) return null;
+      const cacheKey = `${name}|${className}|${strokeWidth}`;
+      if (!iconCache.has(cacheKey)) {
+        const svgMarkup = feather.icons[name].toSvg({ class: className, 'stroke-width': strokeWidth });
+        iconCache.set(cacheKey, svgMarkup.trim());
+      }
+      const markup = iconCache.get(cacheKey);
+      if (!markup) return null;
+      iconTemplate.innerHTML = markup;
+      const fragment = iconTemplate.content.cloneNode(true);
+      const svg = fragment.firstElementChild;
+      if (svg) {
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+      }
+      return svg;
+    }
+
+    function replaceStaticIcons(root = document) {
+      if (!window.feather || !feather.icons) return false;
+      const placeholders = root.querySelectorAll('i[data-feather]');
+      placeholders.forEach((placeholder) => {
+        const name = placeholder.getAttribute('data-feather');
+        if (!name) return;
+        const existingClass = placeholder.getAttribute('class');
+        const strokeAttr = placeholder.getAttribute('data-stroke-width');
+        const icon = createIcon(name, {
+          className: existingClass || ICON_DEFAULT_CLASS,
+          strokeWidth: strokeAttr ? Number(strokeAttr) : 2,
+        });
+        if (!icon) return;
+        if (placeholder.dataset.role) {
+          icon.dataset.role = placeholder.dataset.role;
+        }
+        placeholder.replaceWith(icon);
+      });
+      return true;
+    }
+
+    function prepareEmployee(employee, dateStr = formatForInput(currentDate)) {
+      if (!employee) return employee;
+      const mapped = mapServerEmployee(employee);
+      const withCheckout = applyCheckoutStateToEmployee(mapped, dateStr);
+      return attachComputedFields(withCheckout);
     }
     
     function loadCheckoutState() {
@@ -652,7 +726,7 @@
     }
 
     function mapServerEmployeesWithCheckout(serverEmployees, dateStr = formatForInput(currentDate)) {
-      return (serverEmployees || []).map(emp => applyCheckoutStateToEmployee(mapServerEmployee(emp), dateStr));
+      return (serverEmployees || []).map(emp => prepareEmployee(emp, dateStr));
     }
     async function parseErrorResponse(response) {
       if (!response) return 'Error desconocido del servidor.';
@@ -729,7 +803,7 @@
           throw new Error('El servidor no devolvió la información del empleado creado.');
         }
 
-        const newEmployee = applyCheckoutStateToEmployee(mapServerEmployee(payload.employee));
+        const newEmployee = prepareEmployee(payload.employee);
         employees.push(newEmployee);
         employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
         attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
@@ -984,7 +1058,7 @@
         const payload = await response.json();
         if (payload && payload.employee) {
           const dateStr = formatForInput(currentDate);
-          const updated = applyCheckoutStateToEmployee(mapServerEmployee(payload.employee), dateStr);
+          const updated = prepareEmployee(payload.employee, dateStr);
           const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
           if (index !== -1) {
             employees[index] = updated;
@@ -1026,8 +1100,9 @@
     const confirmDate = document.getElementById('confirm-date');
 
     function updateDateDisplay() {
+      if (!currentDateLabel) return;
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('current-date').textContent = currentDate.toLocaleDateString('es-MX', options);
+      currentDateLabel.textContent = currentDate.toLocaleDateString('es-MX', options);
     }
 
     dateSelector.addEventListener('click', () => {
@@ -1099,8 +1174,9 @@
     }
 
     function renderEmployees() {
-      employeeList.innerHTML = '';
-      
+      if (!employeeList) return;
+      const fragment = document.createDocumentFragment();
+
       employees.forEach(emp => {
         const card = document.createElement('div');
         const infoWrapper = document.createElement('div');
@@ -1115,10 +1191,11 @@
         const isChecked = Boolean(emp.checkedIn);
         const hasCheckInTime = Boolean(emp.checkedInAt);
         const isCheckedOut = Boolean(emp.checkedOut);
+        const normalizedName = emp.normalizedName ?? attachComputedFields(emp).normalizedName;
 
         card.className = 'employee-card glass-panel gap-3 rounded-lg p-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
-        card.dataset.name = normalizeForSearch(emp.name || '');
-        card.dataset.present = String(Boolean(emp.checkedIn));
+        card.dataset.name = normalizedName;
+        card.dataset.present = String(isChecked);
 
         if (isReadOnlyDate) {
           card.classList.add('opacity-60');
@@ -1130,11 +1207,7 @@
         nameEl.textContent = emp.name || 'Empleado sin nombre';
 
         metaEl.className = 'text-sm text-gray-500';
-        if (emp.department) {
-          metaEl.textContent = emp.department;
-        } else {
-          metaEl.textContent = 'Sin información';
-        }
+        metaEl.textContent = emp.department ? emp.department : 'Sin información';
 
         idEl.className = 'mt-1 text-xs text-gray-400';
         const idValue = String(emp.id || '');
@@ -1158,9 +1231,13 @@
         deleteBtn.dataset.id = String(emp.id);
         deleteBtn.dataset.name = emp.name || '';
         deleteBtn.setAttribute('aria-label', `Eliminar ${emp.name || 'empleado'}`);
-        deleteBtn.innerHTML = '<i data-feather="trash-2"></i>';
-
+        const deleteIcon = createIcon('trash-2', { className: 'w-4 h-4' });
         actionsPanel.appendChild(deleteBtn);
+        if (deleteIcon) {
+          deleteBtn.appendChild(deleteIcon);
+        } else {
+          deleteBtn.textContent = 'Eliminar';
+        }
 
         attendanceWrapper.className = 'employee-attendance attendance-wrapper flex flex-col items-end gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
 
@@ -1180,21 +1257,38 @@
         const iconWrapper = document.createElement('span');
         iconWrapper.className = 'relative flex h-full w-full items-center justify-center';
 
-        const checkIcon = document.createElement('i');
-        checkIcon.dataset.feather = 'check';
-        checkIcon.setAttribute('data-role', 'check-icon');
-        checkIcon.className = 'transition-opacity duration-200';
-        if (!isChecked) checkIcon.classList.add('opacity-0');
-        if (isCheckedOut) checkIcon.classList.add('hidden');
+        const checkIcon = createIcon('check', { className: 'transition-opacity duration-200 w-4 h-4' });
+        if (checkIcon) {
+          checkIcon.dataset.role = 'check-icon';
+          if (!isChecked) checkIcon.classList.add('opacity-0');
+          if (isCheckedOut) checkIcon.classList.add('hidden');
+          iconWrapper.appendChild(checkIcon);
+        } else {
+          const fallbackCheck = document.createElement('span');
+          fallbackCheck.dataset.role = 'check-icon';
+          fallbackCheck.className = 'transition-opacity duration-200 text-xs font-semibold';
+          fallbackCheck.textContent = '✓';
+          fallbackCheck.setAttribute('aria-hidden', 'true');
+          if (!isChecked) fallbackCheck.classList.add('opacity-0');
+          if (isCheckedOut) fallbackCheck.classList.add('hidden');
+          iconWrapper.appendChild(fallbackCheck);
+        }
 
-        const exitIcon = document.createElement('i');
-        exitIcon.dataset.feather = 'log-out';
-        exitIcon.setAttribute('data-role', 'exit-icon');
-        exitIcon.className = 'transition-opacity duration-200';
-        if (!isCheckedOut) exitIcon.classList.add('hidden');
+        const exitIcon = createIcon('log-out', { className: 'transition-opacity duration-200 w-4 h-4' });
+        if (exitIcon) {
+          exitIcon.dataset.role = 'exit-icon';
+          if (!isCheckedOut) exitIcon.classList.add('hidden');
+          iconWrapper.appendChild(exitIcon);
+        } else {
+          const fallbackExit = document.createElement('span');
+          fallbackExit.dataset.role = 'exit-icon';
+          fallbackExit.className = 'transition-opacity duration-200 text-xs font-semibold';
+          fallbackExit.textContent = '↘';
+          fallbackExit.setAttribute('aria-hidden', 'true');
+          if (!isCheckedOut) fallbackExit.classList.add('hidden');
+          iconWrapper.appendChild(fallbackExit);
+        }
 
-        iconWrapper.appendChild(checkIcon);
-        iconWrapper.appendChild(exitIcon);
         checkButton.appendChild(iconWrapper);
 
         timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right mt-1 sm:mt-2 sm:text-center';
@@ -1204,7 +1298,6 @@
           timeEl.classList.add('checkout');
           timeEl.classList.remove('hidden');
         } else if (hasCheckInTime) {
-
           timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
           timeEl.classList.remove('hidden');
           timeEl.classList.remove('checkout');
@@ -1224,19 +1317,17 @@
         card.appendChild(actionsPanel);
         card.appendChild(attendanceWrapper);
 
-        employeeList.appendChild(card);
+        fragment.appendChild(card);
       });
 
       if (!employees.length) {
         const emptyState = document.createElement('div');
         emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
         emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
-        employeeList.appendChild(emptyState);
+        fragment.appendChild(emptyState);
       }
 
-      if (window.feather && typeof feather.replace === 'function') {
-        feather.replace();
-      }
+      employeeList.replaceChildren(fragment);
     }
 
     function updateSearchClearButton() {
@@ -1246,7 +1337,7 @@
       searchClearButton.setAttribute('aria-hidden', String(!hasValue));
     }
 
-    function applyFilters() {
+    function applyFiltersNow() {
       if (!employeeList) return;
       const rawSearchValue = searchInput ? searchInput.value : '';
       const searchTerm = normalizeForSearch(rawSearchValue);
@@ -1254,9 +1345,26 @@
       cards.forEach(card => {
         const matchesName = !searchTerm || card.dataset.name.includes(searchTerm);
         const matchesPresent = !showPresentOnly || card.dataset.present === 'true';
-        card.style.display = matchesName && matchesPresent ? 'flex' : 'none';
+        const shouldShow = matchesName && matchesPresent;
+        if (shouldShow) {
+          card.style.display = '';
+          card.hidden = false;
+        } else {
+          card.style.display = 'none';
+          card.hidden = true;
+        }
       });
       updateSearchClearButton();
+    }
+
+     function applyFilters() {
+      if (filterRaf !== null) {
+        cancelAnimationFrame(filterRaf);
+      }
+      filterRaf = requestAnimationFrame(() => {
+        filterRaf = null;
+        applyFiltersNow();
+      });
     }
 
     function updatePresentFilterButtonState() {
@@ -1777,8 +1885,11 @@ function openAttendanceActionSheet(context) {
 
     document.addEventListener('DOMContentLoaded', async () => {
       updateDateDisplay();
+      const hydrated = replaceStaticIcons();
+      if (!hydrated) {
+        window.addEventListener('load', () => replaceStaticIcons(), { once: true });
+      }
       await loadEmployeesFromServer(currentDate);
-      if (window.feather && typeof feather.replace === 'function') feather.replace();
     });
   </script>
   
