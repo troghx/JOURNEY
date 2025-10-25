@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSC - Registro de Personal</title>
+  <link rel="icon" type="image/png" href="journey_no_bg.png" />
+
+  <!-- Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+  />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Feather Icons (single include) -->
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js" defer></script>
+
+  <!-- SheetJS (Excel parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background-color: #03040c;
+      color: #111827;
+      position: relative;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 85% 15%, rgba(255, 212, 96, 0.55), rgba(255, 212, 96, 0) 55%),
+        radial-gradient(circle at 12% 80%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -10% -20%;
+      background-image:
+        radial-gradient(1.2px 1.2px at 20px 35px, rgba(255, 255, 255, 0.9) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 80px 120px, rgba(255, 248, 209, 0.85) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 140px 60px, rgba(255, 255, 255, 0.8) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 30px 160px, rgba(255, 245, 199, 0.75) 45%, transparent 70%),
+        radial-gradient(1.2px 1.2px at 160px 190px, rgba(255, 255, 255, 0.85) 45%, transparent 70%);
+      background-size: 220px 220px, 240px 240px, 260px 260px, 280px 280px, 300px 300px;
+      opacity: 0.75;
+      pointer-events: none;
+      z-index: -1;
+      animation: star-drift 120s linear infinite, star-twinkle 6s ease-in-out infinite;
+    }
+
+    @keyframes star-drift {
+      from {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+      }
+      to {
+        transform: translate3d(4%, -2%, 0) rotate(360deg);
+        background-position: -320px 180px, -260px 140px, -220px 120px, -180px 100px, -140px 80px;
+      }
+    }
+
+    @keyframes star-twinkle {
+      0%,
+      100% {
+        opacity: 0.55;
+      }
+      50% {
+        opacity: 0.95;
+      }
+    }
+
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .employee-card {
+      transition: all 0.2s ease;
+    }
+
+    .employee-card.glass-panel {
+      background: rgba(255, 255, 255, 0.74);
+    }
+
+    .employee-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    #clear-toast.glass-panel {
+      background: rgba(16, 185, 129, 0.92);
+      border-color: rgba(236, 253, 245, 0.25);
+      color: #ecfdf5;
+    }
+
+    .glass-input {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.92);
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+    .checkmark { transition: all 0.3s ease; }
+    .checkmark.active { background-color: #10B981; color: white; border-color: #10B981; }
+    .checkmark.checked-out { background-color: #F59E0B; color: white; border-color: #F59E0B; }
+    .attendance-time.checkout { color: #B45309; }
+    .attendance-action-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(17, 24, 39, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      transition: background 0.3s ease;
+    }
+    .attendance-action-sheet.active { display: flex; }
+    .attendance-action-sheet.keyboard-open {
+      align-items: flex-end;
+      padding-bottom: calc(var(--keyboard-offset, 0px) + 1.5rem);
+    }
+    .attendance-action-card {
+      width: 100%;
+      max-width: 26rem;
+      border-radius: 1rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+      transform: translateY(-12vh);
+      transition: transform 0.3s ease;
+    }
+    .attendance-action-sheet.keyboard-open .attendance-action-card {
+      transform: translateY(0);
+    }
+    .attendance-action-card button[data-variant='ghost'] {
+      border-color: rgba(229, 231, 235, 0.7);
+    }
+    .btn-pill-active { background-image: linear-gradient(to right, #d1fae5, #a7f3d0); color: #065f46; }
+    .app-options-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(17, 24, 39, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .app-options-sheet.active {
+      display: flex;
+    }
+    .app-options-card {
+      width: 100%;
+      max-width: 24rem;
+      border-radius: 1rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+    }
+    body.modal-open {
+      overflow: hidden;
+    }
+    .stats-container {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .stats-container .stat-card {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
+    }
+    .stat-card--desktop {
+      display: flex;
+    }
+    .stat-card--interactive {
+      align-items: center;
+      text-align: center;
+      gap: 0.5rem;
+    }
+    .stat-card--interactive.glass-panel {
+      background: rgba(15, 23, 42, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: none;
+      color: #f9fafb;
+    }
+    .stat-card--interactive .stat-label {
+      color: rgba(229, 231, 235, 0.85);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stat-card--interactive .separator {
+      color: rgba(229, 231, 235, 0.75);
+    }
+    .stat-card--interactive [data-present-count] {
+      color: #34d399;
+    }
+    .stat-card--interactive [data-total-count] {
+      color: rgba(243, 244, 246, 0.9);
+    }
+    .stat-value--desktop {
+      display: none;
+    }
+    .stat-compact {
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+    .stat-value {
+      line-height: 1.2;
+    }
+    .header-compact {
+      transition: padding 0.2s ease;
+    }
+    .header-compact .header-inner {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+    .header-compact .header-actions {
+      flex: 1 1 auto;
+      min-width: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .header-compact .header-actions::-webkit-scrollbar {
+      display: none;
+    }
+    @media (max-width: 639px) {
+      .header-compact {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+      }
+      .header-compact .header-inner {
+        gap: 0.5rem;
+      }
+      .header-compact .header-actions {
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+      }
+      .header-compact .header-actions > * {
+        flex: 0 0 auto;
+      }
+    }
+    @media (max-width: 639px) {
+      .employee-card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          'info actions'
+          'info attendance';
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+      }
+      .employee-card .employee-info {
+        grid-area: info;
+      }
+      .employee-card .employee-actions {
+        grid-area: actions;
+        align-self: flex-start;
+        justify-self: flex-end;
+      }
+      .employee-card .employee-attendance {
+        grid-area: attendance;
+        justify-self: flex-end;
+      }
+      .stats-container {
+        width: 100%;
+        justify-content: center;
+      }
+      .stats-container .stat-card {
+        min-width: min(220px, 100%);
+      }
+      #stats-mobile-mount {
+        width: auto;
+        justify-content: center;
+      }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="text-gray-900">
+  <div class="min-h-screen pb-20">
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-10 header-compact">
+      <div class="header-inner container mx-auto px-4 py-1 sm:py-2 flex items-center justify-between gap-2.5 sm:gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="relative">
+            <button
+              id="app-menu-toggle"
+              type="button"
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-white/70 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="app-mode-sheet"
+            >
+              <img src="journey_no_bg.png" alt="JSC Logo" class="h-8 w-8 object-contain" loading="lazy" />
+              <span class="sr-only">Abrir menú principal</span>
+            </button>
+          </div>
+          <h1 class="hidden text-lg font-semibold text-gray-800 sm:block">JSC</h1>
+          <span class="sr-only">JSC</span>
+          <div id="stats-default-container" class="hidden sm:flex items-center gap-3 min-w-0">
+            <div id="stats-section" class="stats-container w-full sm:w-auto justify-center sm:justify-start">
+              <button
+                id="present-filter-btn"
+                type="button"
+                class="stat-card stat-card--interactive glass-panel px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-center cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:bg-emerald-500/10 w-auto max-w-[220px] sm:max-w-none"
+                aria-pressed="false"
+              >
+                <div class="stat-label text-gray-500 text-xs font-medium uppercase tracking-wide">Presentes hoy</div>
+                <div class="sr-only sm:hidden">
+                  Presentes hoy: <span data-present-count>0</span> de <span data-total-count>0</span> empleados.
+                </div>
+                <div id="present-count" data-present-count class="stat-value stat-value--desktop text-xl font-semibold text-emerald-600">0</div>
+                <div class="stat-compact">
+                  <span data-present-count class="stat-value text-lg font-semibold text-emerald-600">0</span>
+                  <span class="separator">/</span>
+                  <span data-total-count class="stat-value text-lg font-semibold text-gray-800">0</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="header-actions flex flex-nowrap sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 pr-1 text-sm text-gray-600 overflow-x-auto sm:overflow-visible">
+          <div id="stats-mobile-mount" class="sm:hidden flex flex-shrink-0 items-stretch gap-2 order-3 sm:order-none"></div>
+          <button id="import-btn" class="flex flex-shrink-0 items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
+            <i data-feather="upload" class="w-5 h-5"></i>
+            <span class="hidden sm:inline">Importar desde Excel</span>
+            <span class="sr-only">Importar empleados desde Excel</span>
+          </button>
+          <button id="add-employee-btn" class="flex flex-shrink-0 items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-2 sm:order-none">
+            <i data-feather="user-plus" class="w-5 h-5"></i>
+            <span class="hidden sm:inline">Agregar personal</span>
+            <span class="sr-only">Agregar nuevo personal</span>
+          </button>
+          <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+          <button id="date-selector" class="order-4 sm:order-none flex flex-shrink-0 items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-lg">
+            <i data-feather="calendar" class="w-5 h-5"></i>
+            <span id="current-date" class="hidden sm:inline"></span>
+            <span class="sr-only">Seleccionar fecha</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+      <!-- Date Picker Modal -->
+      <div id="date-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
+        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4">
+          <h3 class="text-lg font-semibold mb-4">Seleccionar fecha</h3>
+          <input type="date" id="date-input" class="w-full p-2 border rounded mb-4" />
+          <div class="flex justify-end space-x-2">
+            <button id="cancel-date" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+            <button id="confirm-date" class="px-4 py-2 bg-emerald-500 text-white rounded">Confirmar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden">
+        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4">
+          <h3 class="text-lg font-semibold mb-4">Agregar nuevo personal</h3>
+          <form id="add-employee-form" class="space-y-4">
+            <div>
+              <label for="add-employee-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+              <input id="add-employee-name" name="name" type="text" required placeholder="Ej. Juan Pérez" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div>
+              <label for="add-employee-position" class="block text-sm font-medium text-gray-700 mb-1">Puesto (opcional)</label>
+              <input id="add-employee-position" name="position" type="text" placeholder="Ej. Auxiliar" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div>
+              <label for="add-employee-department" class="block text-sm font-medium text-gray-700 mb-1">Empresa (opcional)</label>
+              <input id="add-employee-department" name="department" type="text" placeholder="Ej. Empresa Aliada" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+              <button type="button" id="cancel-add-employee" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+              <button type="submit" id="submit-add-employee" class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="mb-6">
+        <div class="relative">
+          <i data-feather="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Buscar empleado..."
+            class="w-full py-3 pl-11 pr-12 rounded-lg glass-input focus:outline-none focus:ring-2 focus:ring-emerald-300"
+          />
+          <button
+            type="button"
+            id="search-clear"
+            class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+            aria-hidden="true"
+          >
+            <span class="sr-only">Limpiar búsqueda</span>
+            <i data-feather="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+
+      <div id="read-only-banner" class="hidden glass-panel mb-6 p-4 rounded-lg text-sm text-gray-700"></div>
+
+      <!-- Employee List -->
+      <div id="employee-list" class="space-y-2 sm:space-y-3"></div>
+
+    <!-- Floating Action Buttons -->
+    <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
+      <div id="clear-confirmation" class="hidden w-72 glass-panel rounded-lg p-4 text-sm text-gray-700">
+        <div class="font-medium text-gray-800 mb-3">¿Limpiar asistencias de <span id="clear-confirmation-date"></span>?</div>
+        <p class="text-xs text-gray-500 mb-3">Esta acción eliminará todos los registros de asistencia del día seleccionado.</p>
+        <div class="flex justify-end space-x-2 text-sm">
+          <button id="cancel-clear-btn" class="px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-100 transition-colors">Cancelar</button>
+          <button id="confirm-clear-btn" class="px-3 py-1.5 rounded bg-rose-500 text-white hover:bg-rose-600 transition-colors">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="clear-toast" class="hidden w-72 glass-panel bg-emerald-500/90 text-white text-sm rounded-lg shadow-lg px-4 py-3 border-none">
+        Asistencias limpiadas correctamente.
+      </div>
+
+      <button id="clear-attendance-btn" title="Limpiar asistencias del día" aria-label="Limpiar asistencias del día"
+        class="hidden bg-white text-rose-500 border border-rose-100 p-4 rounded-full shadow-lg hover:bg-rose-50 transition-colors flex items-center justify-center">
+        <i data-feather="trash-2" class="w-5 h-5"></i>
+      </button>
+
+      <button id="export-btn" title="Descargar asistencia (Excel)"
+        class="bg-emerald-500 text-white p-4 rounded-full shadow-lg hover:bg-emerald-600 transition-colors flex items-center justify-center">
+        <i data-feather="download" class="w-5 h-5"></i>
+      </button>
+    </div>
+      
+    <div id="attendance-action-sheet" class="attendance-action-sheet hidden">
+      <div class="attendance-action-card glass-panel w-full p-5">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">¿Qué deseas hacer?</h3>
+            <p id="attendance-action-message" class="text-sm text-gray-500 mt-1">
+              Selecciona una opción para actualizar la asistencia.
+            </p>
+          </div>
+          <button id="attendance-action-cancel" class="p-2 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Cerrar">
+            <i data-feather="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="mt-5 space-y-3">
+          <button id="attendance-remove-btn" class="w-full px-4 py-3 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors" data-variant="ghost">
+            Quitar asistencia
+          </button>
+          <button id="attendance-checkout-btn" class="w-full px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium shadow hover:bg-amber-600 transition-colors">
+            Marcar salida
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+      id="app-mode-sheet"
+      class="app-options-sheet hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-mode-title"
+    >
+      <div class="app-options-card glass-panel w-full p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="app-mode-title" class="text-lg font-semibold text-gray-800">¿Qué deseas hacer?</h2>
+            <p class="mt-1 text-sm text-gray-500">Elige una acción para continuar.</p>
+          </div>
+          <button
+            id="app-mode-close"
+            type="button"
+            class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Cerrar opciones"
+          >
+            <i data-feather="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="mt-5 space-y-3">
+          <button
+            id="app-mode-edit-btn"
+            type="button"
+            class="w-full px-4 py-3 rounded-lg bg-emerald-500 text-white text-sm font-medium shadow hover:bg-emerald-600 transition-colors flex items-center justify-between"
+          >
+            <span id="app-mode-edit-text">Activar modo edición</span>
+            <span id="app-mode-edit-status" class="text-xs uppercase tracking-wide text-emerald-100 hidden">Activo</span>
+          </button>
+          <a
+            id="app-mode-modules-link"
+            href="seleccionar_personal.html"
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-between"
+          >
+            <span>Seleccionar módulos</span>
+            <i data-feather="grid" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+  <script>
+    const API_BASE_URL = '/.netlify/functions/employees';
+    let employees = [];
+    let currentDate = new Date();
+    let attendanceHasRecords = false;
+    let isReadOnlyDate = false;
+    let isEditMode = false;
+
+    const employeeList = document.getElementById('employee-list');
+    const searchInput = document.getElementById('search-input');
+    const searchClearButton = document.getElementById('search-clear');
+    const readOnlyBanner = document.getElementById('read-only-banner');
+    const presentFilterBtn = document.getElementById('present-filter-btn');
+    const statsSection = document.getElementById('stats-section');
+    const statsDefaultContainer = document.getElementById('stats-default-container');
+    const statsMobileMount = document.getElementById('stats-mobile-mount');
+    const totalCountElements = document.querySelectorAll('[data-total-count]');
+    const presentCountElements = document.querySelectorAll('[data-present-count]');
+    const addEmployeeBtn = document.getElementById('add-employee-btn');
+    const addEmployeeModal = document.getElementById('add-employee-modal');
+    const addEmployeeForm = document.getElementById('add-employee-form');
+    const addEmployeeNameInput = document.getElementById('add-employee-name');
+    const addEmployeePositionInput = document.getElementById('add-employee-position');
+    const addEmployeeDepartmentInput = document.getElementById('add-employee-department');
+    const cancelAddEmployeeBtn = document.getElementById('cancel-add-employee');
+    const submitAddEmployeeBtn = document.getElementById('submit-add-employee');
+    const clearAttendanceBtn = document.getElementById('clear-attendance-btn');
+    const clearConfirmationCard = document.getElementById('clear-confirmation');
+    const clearConfirmationDate = document.getElementById('clear-confirmation-date');
+    const cancelClearBtn = document.getElementById('cancel-clear-btn');
+    const confirmClearBtn = document.getElementById('confirm-clear-btn');
+    const clearToast = document.getElementById('clear-toast');
+    const attendanceActionSheet = document.getElementById('attendance-action-sheet');
+    const attendanceActionMessage = document.getElementById('attendance-action-message');
+    const attendanceActionCancel = document.getElementById('attendance-action-cancel');
+    const attendanceRemoveBtn = document.getElementById('attendance-remove-btn');
+    const attendanceCheckoutBtn = document.getElementById('attendance-checkout-btn');
+    const appMenuToggle = document.getElementById('app-menu-toggle');
+    const appModeSheet = document.getElementById('app-mode-sheet');
+    const appModeEditBtn = document.getElementById('app-mode-edit-btn');
+    const appModeEditText = document.getElementById('app-mode-edit-text');
+    const appModeEditStatus = document.getElementById('app-mode-edit-status');
+    const appModeClose = document.getElementById('app-mode-close');
+    const appModeModulesLink = document.getElementById('app-mode-modules-link');
+    const currentDateLabel = document.getElementById('current-date');
+    const iconTemplate = document.createElement('template');
+    const iconCache = new Map();
+    const ICON_DEFAULT_CLASS = 'w-4 h-4';
+    let clearToastTimeout = null;
+    let showPresentOnly = false;
+    let pendingCheckAction = null;
+    let filterRaf = null;
+
+    const CHECKOUT_STORAGE_KEY = 'journey-attendance-checkouts';
+    let checkoutStateByDate = loadCheckoutState();
+
+    const mobileStatsMediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 639px)') : null;
+
+    function moveStatsToMobile() {
+      if (!statsSection || !statsMobileMount) return;
+      if (statsMobileMount.contains(statsSection)) return;
+      statsMobileMount.appendChild(statsSection);
+    }
+
+    function moveStatsToDesktop() {
+      if (!statsSection || !statsDefaultContainer) return;
+      if (statsDefaultContainer.contains(statsSection)) return;
+      statsDefaultContainer.appendChild(statsSection);
+    }
+
+    function handleStatsPlacement(event) {
+      if (!event) return;
+      if (event.matches) {
+        moveStatsToMobile();
+      } else {
+        moveStatsToDesktop();
+      }
+    }
+
+    if (mobileStatsMediaQuery) {
+      handleStatsPlacement(mobileStatsMediaQuery);
+      if (typeof mobileStatsMediaQuery.addEventListener === 'function') {
+        mobileStatsMediaQuery.addEventListener('change', handleStatsPlacement);
+      } else if (typeof mobileStatsMediaQuery.addListener === 'function') {
+        mobileStatsMediaQuery.addListener(handleStatsPlacement);
+      }
+    } else {
+      moveStatsToDesktop();
+    }
+
+    function normalizeForSearch(value) {
+      return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+    
+    function attachComputedFields(employee) {
+      if (!employee) return employee;
+      employee.normalizedName = normalizeForSearch(employee.name || '');
+      return employee;
+    }
+
+    function createIcon(name, { className = ICON_DEFAULT_CLASS, strokeWidth = 2 } = {}) {
+      if (!window.feather || !feather.icons || !feather.icons[name]) return null;
+      const cacheKey = `${name}|${className}|${strokeWidth}`;
+      if (!iconCache.has(cacheKey)) {
+        const svgMarkup = feather.icons[name].toSvg({ class: className, 'stroke-width': strokeWidth });
+        iconCache.set(cacheKey, svgMarkup.trim());
+      }
+      const markup = iconCache.get(cacheKey);
+      if (!markup) return null;
+      iconTemplate.innerHTML = markup;
+      const fragment = iconTemplate.content.cloneNode(true);
+      const svg = fragment.firstElementChild;
+      if (svg) {
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+      }
+      return svg;
+    }
+
+    function replaceStaticIcons(root = document) {
+      if (!window.feather || !feather.icons) return false;
+      const placeholders = root.querySelectorAll('i[data-feather]');
+      placeholders.forEach((placeholder) => {
+        const name = placeholder.getAttribute('data-feather');
+        if (!name) return;
+        const existingClass = placeholder.getAttribute('class');
+        const strokeAttr = placeholder.getAttribute('data-stroke-width');
+        const icon = createIcon(name, {
+          className: existingClass || ICON_DEFAULT_CLASS,
+          strokeWidth: strokeAttr ? Number(strokeAttr) : 2,
+        });
+        if (!icon) return;
+        if (placeholder.dataset.role) {
+          icon.dataset.role = placeholder.dataset.role;
+        }
+        placeholder.replaceWith(icon);
+      });
+      return true;
+    }
+
+    function prepareEmployee(employee, dateStr = formatForInput(currentDate)) {
+      if (!employee) return employee;
+      const mapped = mapServerEmployee(employee);
+      const withCheckout = applyCheckoutStateToEmployee(mapped, dateStr);
+      return attachComputedFields(withCheckout);
+    }
+    
+    function loadCheckoutState() {
+      try {
+        const stored = localStorage.getItem(CHECKOUT_STORAGE_KEY);
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        console.warn('No se pudo cargar el estado de salidas almacenado:', error);
+        return {};
+      }
+    }
+
+    function persistCheckoutState() {
+      try {
+        localStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(checkoutStateByDate));
+      } catch (error) {
+        console.warn('No se pudo guardar el estado de salidas.', error);
+      }
+    }
+
+    function getCheckoutStateForDate(dateStr) {
+      return checkoutStateByDate[dateStr] || {};
+    }
+
+    function setCheckoutStateForEmployee(dateStr, employeeId, value) {
+      if (!employeeId) return;
+      const key = String(employeeId);
+      if (!checkoutStateByDate[dateStr]) {
+        checkoutStateByDate[dateStr] = {};
+      }
+      if (value) {
+        checkoutStateByDate[dateStr][key] = true;
+      } else if (checkoutStateByDate[dateStr]) {
+        delete checkoutStateByDate[dateStr][key];
+        if (!Object.keys(checkoutStateByDate[dateStr]).length) {
+          delete checkoutStateByDate[dateStr];
+        }
+      }
+      persistCheckoutState();
+    }
+
+    function clearCheckoutStateForDate(dateStr) {
+      if (checkoutStateByDate[dateStr]) {
+        delete checkoutStateByDate[dateStr];
+        persistCheckoutState();
+      }
+    }
+
+    function updateAppModeOptionTexts() {
+      if (appModeEditText) {
+        appModeEditText.textContent = isEditMode ? 'Desactivar modo edición' : 'Activar modo edición';
+      }
+      if (appModeEditStatus) {
+        appModeEditStatus.classList.toggle('hidden', !isEditMode);
+      }
+      if (appModeEditBtn) {
+        appModeEditBtn.setAttribute('aria-pressed', String(isEditMode));
+        appModeEditBtn.classList.toggle('bg-emerald-500', !isEditMode);
+        appModeEditBtn.classList.toggle('hover:bg-emerald-600', !isEditMode);
+        appModeEditBtn.classList.toggle('text-white', !isEditMode);
+        appModeEditBtn.classList.toggle('bg-emerald-100', isEditMode);
+        appModeEditBtn.classList.toggle('text-emerald-700', isEditMode);
+        appModeEditBtn.classList.toggle('hover:bg-emerald-200', isEditMode);
+        appModeEditBtn.classList.toggle('border', isEditMode);
+        appModeEditBtn.classList.toggle('border-emerald-200', isEditMode);
+      }
+    }
+
+    function openAppModeSheet() {
+      if (!appModeSheet) return;
+      updateAppModeOptionTexts();
+      appModeSheet.classList.remove('hidden');
+      appModeSheet.classList.add('active');
+      document.body.classList.add('modal-open');
+      if (appMenuToggle) {
+        appMenuToggle.setAttribute('aria-expanded', 'true');
+      }
+      requestAnimationFrame(() => {
+        if (appModeEditBtn) {
+          appModeEditBtn.focus();
+        }
+      });
+    }
+
+    function closeAppModeSheet() {
+      if (!appModeSheet) return;
+      appModeSheet.classList.remove('active');
+      appModeSheet.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+      if (appMenuToggle) {
+        appMenuToggle.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function updateEditModeUI() {
+      if (appMenuToggle) {
+        appMenuToggle.classList.toggle('ring-2', isEditMode);
+        appMenuToggle.classList.toggle('ring-emerald-400', isEditMode);
+        appMenuToggle.classList.toggle('bg-white', isEditMode);
+        appMenuToggle.classList.toggle('shadow-lg', isEditMode);
+      }
+      if (clearAttendanceBtn) {
+        const shouldHide = !isEditMode;
+        clearAttendanceBtn.classList.toggle('hidden', shouldHide);
+        if (shouldHide) {
+          clearAttendanceBtn.setAttribute('aria-hidden', 'true');
+          hideClearConfirmation();
+        } else {
+          clearAttendanceBtn.removeAttribute('aria-hidden');
+        }
+      }
+      updateAppModeOptionTexts();
+    }
+
+    function setEditMode(value) {
+      const nextValue = Boolean(value);
+      if (nextValue === isEditMode) {
+        updateEditModeUI();
+        return;
+      }
+      isEditMode = nextValue;
+      updateEditModeUI();
+      refreshUI();
+    }
+
+    function applyCheckoutStateToEmployee(emp, dateStr = formatForInput(currentDate)) {
+      if (!emp) return emp;
+      const dayState = getCheckoutStateForDate(dateStr);
+      const key = String(emp.id ?? '');
+      emp.checkedOut = Boolean(dayState[key]);
+      return emp;
+    }
+
+    function mapServerEmployeesWithCheckout(serverEmployees, dateStr = formatForInput(currentDate)) {
+      return (serverEmployees || []).map(emp => prepareEmployee(emp, dateStr));
+    }
+    async function parseErrorResponse(response) {
+      if (!response) return 'Error desconocido del servidor.';
+      const statusText = response.status ? ` (HTTP ${response.status})` : '';
+      try {
+        const data = await response.clone().json();
+        if (data && typeof data === 'object') {
+          const parts = [];
+          if (data.error) parts.push(data.error);
+          if (data.detail && data.detail !== data.error) parts.push(data.detail);
+          if (data.hint) parts.push(`Sugerencia: ${data.hint}`);
+          if (data.code) parts.push(`Código: ${data.code}`);
+          if (parts.length) return `${parts.join(' ')}${statusText}`.trim();
+        }
+      } catch (err) {
+        try {
+          const text = await response.clone().text();
+          if (text) return `${text.trim()}${statusText}`;
+        } catch (_) {
+          console.warn('No se pudo leer la respuesta de error del servidor:', err);
+        }
+      }
+      return `La solicitud al servidor falló${statusText}.`;
+    }
+
+    async function fetchServerDebugInfo() {
+      try {
+        const response = await fetch(`${API_BASE_URL}?debug=1`);
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (error) {
+        console.warn('No se pudo obtener la información de depuración del servidor:', error);
+        return null;
+      }
+    }
+    
+        function resetAddEmployeeForm() {
+      if (addEmployeeForm) addEmployeeForm.reset();
+      if (addEmployeeNameInput) addEmployeeNameInput.focus();
+    }
+
+    function showAddEmployeeModal() {
+      if (!addEmployeeModal) return;
+      addEmployeeModal.classList.remove('hidden');
+      resetAddEmployeeForm();
+    }
+
+    function hideAddEmployeeModal() {
+      if (!addEmployeeModal) return;
+      addEmployeeModal.classList.add('hidden');
+    }
+
+    async function createManualEmployee({ name, position, department }) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee: {
+              name,
+              position,
+              department,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo agregar el empleado.');
+        }
+
+        const payload = await response.json();
+        if (!payload || !payload.employee) {
+          throw new Error('El servidor no devolvió la información del empleado creado.');
+        }
+
+        const newEmployee = prepareEmployee(payload.employee);
+        employees.push(newEmployee);
+        employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+        attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        recalculateReadOnlyState();
+        refreshUI();
+        return newEmployee;
+      } catch (error) {
+        console.error('Error al crear empleado manual:', error);
+        throw error;
+      }
+    }
+
+    async function deleteEmployeeFromServer(id, dateStr) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId: id, date: dateStr }),
+        });
+
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo eliminar al empleado.');
+        }
+
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
+        } else {
+          employees = employees.filter(emp => String(emp.id) !== String(id));
+        }
+
+        setCheckoutStateForEmployee(dateStr, id, false);
+
+        if (typeof payload.hasAttendanceRecords === 'boolean') {
+          attendanceHasRecords = payload.hasAttendanceRecords;
+        } else {
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        }
+
+        recalculateReadOnlyState();
+        refreshUI();
+      } catch (error) {
+        console.error('Error al eliminar empleado:', error);
+        throw error;
+      }
+    }
+
+    function normalizeEmployee(row) {
+      const normalized = {};
+      Object.entries(row || {}).forEach(([key, value]) => {
+        if (!key) return;
+        normalized[key.trim().toLowerCase()] = value;
+      });
+
+      const idValue =
+        normalized.curp ??
+        normalized.id ??
+        normalized['no'] ??
+        normalized['numero'] ??
+        normalized['clave'] ??
+        normalized['clave de empleado'];
+      const nameValue = normalized.nombre ?? normalized.name ?? '';
+      const positionValue = normalized.puesto ?? normalized.position ?? '';
+      const departmentValue = normalized.empresa ?? normalized.company ?? normalized.departamento ?? normalized.department ?? '';
+      const presentValue = normalized.presente ?? normalized.present ?? normalized.asistio;
+
+      const parseBoolean = (value) => {
+        if (typeof value === 'number') return value !== 0;
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const normalizedValue = value.trim().toLowerCase();
+          return ['1', 'true', 'sí', 'si', 'x', 'yes'].includes(normalizedValue);
+        }
+        return false;
+      };
+
+      const toCleanString = (value) => {
+        if (value === undefined || value === null) return '';
+        return String(value).trim();
+      };
+
+      const finalId = (idValue !== undefined && idValue !== null && String(idValue).trim() !== '') ? String(idValue).trim() : '';
+
+      return {
+        id: finalId,
+        name: toCleanString(nameValue),
+        position: toCleanString(positionValue),
+        department: toCleanString(departmentValue),
+        checkedIn: parseBoolean(presentValue),
+        attendanceRecorded: false,
+        checkedInAt: null,
+      };
+    }
+
+    function mapServerEmployee(emp = {}) {
+      const checkedInAtValue = emp.checkedInAt || emp.checked_in_at || null;
+      return {
+        id: emp.id,
+        name: emp.name || '',
+        position: emp.position || '',
+        department: emp.department || '',
+        checkedIn: Boolean(emp.checkedIn),
+        attendanceRecorded: Boolean(emp.attendanceRecorded),
+        checkedInAt: checkedInAtValue ? String(checkedInAtValue) : null,
+      };
+    }
+
+    function formatCheckInTime(isoString) {
+      if (!isoString) return '';
+      const parsed = new Date(isoString);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function isDateBeforeToday(date) {
+      const today = startOfDay(new Date());
+      return startOfDay(date) < today;
+    }
+
+    function formatForInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function recalculateReadOnlyState() {
+      isReadOnlyDate = isDateBeforeToday(currentDate) && !attendanceHasRecords;
+    }
+
+    function refreshUI() {
+      renderEmployees();
+      updateTotalCount();
+      updatePresentCount();
+      updatePresentFilterButtonState();
+      applyFilters();
+      updateReadOnlyBanner();
+      updateClearButtonState();
+    }
+
+    function updateClearButtonState() {
+      if (!clearAttendanceBtn) return;
+      const shouldDisable = !employees.length || !attendanceHasRecords;
+      clearAttendanceBtn.disabled = shouldDisable;
+      clearAttendanceBtn.classList.toggle('opacity-50', shouldDisable);
+      clearAttendanceBtn.classList.toggle('cursor-not-allowed', shouldDisable);
+      clearAttendanceBtn.classList.toggle('hover:bg-rose-50', !shouldDisable);
+      clearAttendanceBtn.classList.toggle('text-rose-300', shouldDisable);
+      clearAttendanceBtn.classList.toggle('text-rose-500', !shouldDisable);
+      clearAttendanceBtn.setAttribute('aria-disabled', String(shouldDisable));
+    }
+    
+    async function loadEmployeesFromServer(targetDate = currentDate) {
+      try {
+        const dateStr = formatForInput(targetDate);
+        const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`);
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo obtener la lista de empleados.');
+        }
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
+        } else {
+          employees = [];
+        }
+        if (typeof payload.hasAttendanceRecords === 'boolean') {
+          attendanceHasRecords = payload.hasAttendanceRecords;
+        } else {
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        }
+      } catch (error) {
+        console.error('Error al cargar empleados desde el servidor:', error);
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudo cargar la información de empleados guardada en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
+        );
+      } finally {
+        recalculateReadOnlyState();
+        refreshUI();
+      }
+    }
+
+    async function saveEmployeesToServer(newEmployees) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employees: newEmployees })
+        });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo guardar la información en el servidor.');
+        }
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = mapServerEmployeesWithCheckout(payload.employees);
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+          recalculateReadOnlyState();
+          refreshUI();
+        }
+        if (
+          typeof payload.inserted === 'number' ||
+          typeof payload.skipped === 'number' ||
+          typeof payload.updated === 'number' ||
+          typeof payload.matchedByName === 'number' ||
+          typeof payload.promoted === 'number'
+        ) {
+          const summaryParts = [];
+          summaryParts.push(`Nuevos: ${payload.inserted ?? 0}`);
+          summaryParts.push(`Omitidos: ${payload.skipped ?? 0}`);
+          summaryParts.push(`Actualizados por CURP: ${payload.updated ?? 0}`);
+          summaryParts.push(`Actualizados por nombre: ${payload.matchedByName ?? 0}`);
+          summaryParts.push(`Convertidos desde alta manual: ${payload.promoted ?? 0}`);
+          alert('Importación completada.\n' + summaryParts.join('\n'));
+        }
+      } catch (error) {
+        console.error('Error al guardar empleados en el servidor:', error);
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudieron guardar los empleados en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa tu conexión y configuración.')
+        );
+        refreshUI();
+      }
+    }
+
+    async function updateEmployeeCheckStatus(id, checkedIn, { previousRecorded = false, previousCheckedInAt = null } = {}) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, checkedIn, date: formatForInput(currentDate) })
+        });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'Error al actualizar asistencia.');
+        }
+        const payload = await response.json();
+        if (payload && payload.employee) {
+          const dateStr = formatForInput(currentDate);
+          const updated = prepareEmployee(payload.employee, dateStr);
+          const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
+          if (index !== -1) {
+            employees[index] = updated;
+            attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+            recalculateReadOnlyState();
+            refreshUI();
+          }
+        }
+      } catch (error) {
+        console.error('Error al actualizar asistencia:', error);
+        const debugInfo = await fetchServerDebugInfo();
+        if (debugInfo) {
+          console.error('Información de depuración del servidor:', debugInfo);
+        }
+        alert(
+          'No se pudo actualizar la asistencia en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Se revertirá el cambio.')
+        );
+        const target = employees.find(emp => String(emp.id) === String(id));
+        if (target) {
+          target.checkedIn = !checkedIn;
+          target.attendanceRecorded = previousRecorded;
+          target.checkedInAt = previousCheckedInAt;
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+          recalculateReadOnlyState();
+          updateReadOnlyBanner();
+          updatePresentCount();
+          updateClearButtonState();
+          refreshUI();
+        }
+      }
+    }
+
+    const dateSelector = document.getElementById('date-selector');
+    const datePickerModal = document.getElementById('date-picker-modal');
+    const dateInput = document.getElementById('date-input');
+    const cancelDate = document.getElementById('cancel-date');
+    const confirmDate = document.getElementById('confirm-date');
+
+    function updateDateDisplay() {
+      if (!currentDateLabel) return;
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      currentDateLabel.textContent = currentDate.toLocaleDateString('es-MX', options);
+    }
+
+    dateSelector.addEventListener('click', () => {
+      dateInput.value = formatForInput(currentDate);
+      datePickerModal.classList.remove('hidden');
+    });
+    cancelDate.addEventListener('click', () => datePickerModal.classList.add('hidden'));
+    confirmDate.addEventListener('click', async () => {
+      if (dateInput.value) {
+        const [year, month, day] = dateInput.value.split('-').map(Number);
+        currentDate = new Date(year, month - 1, day);
+        updateDateDisplay();
+        await loadEmployeesFromServer(currentDate);
+      }
+      datePickerModal.classList.add('hidden');
+    });
+    datePickerModal.addEventListener('click', (e) => {
+      if (e.target === datePickerModal) datePickerModal.classList.add('hidden');
+    });
+
+        if (addEmployeeBtn) {
+      addEmployeeBtn.addEventListener('click', () => {
+        showAddEmployeeModal();
+      });
+    }
+
+    if (cancelAddEmployeeBtn) {
+      cancelAddEmployeeBtn.addEventListener('click', () => {
+        hideAddEmployeeModal();
+      });
+    }
+
+    if (addEmployeeModal) {
+      addEmployeeModal.addEventListener('click', (event) => {
+        if (event.target === addEmployeeModal) {
+          hideAddEmployeeModal();
+        }
+      });
+    }
+
+    if (addEmployeeForm) {
+      addEmployeeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddEmployeeBtn) return;
+
+        const name = (addEmployeeNameInput?.value || '').trim();
+        const position = (addEmployeePositionInput?.value || '').trim();
+        const department = (addEmployeeDepartmentInput?.value || '').trim();
+
+        if (!name) {
+          alert('Por favor escribe el nombre del colaborador.');
+          addEmployeeNameInput?.focus();
+          return;
+        }
+
+        submitAddEmployeeBtn.disabled = true;
+        submitAddEmployeeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+        try {
+          await createManualEmployee({ name, position, department });
+          hideAddEmployeeModal();
+        } catch (error) {
+          alert('No se pudo agregar al empleado. ' + (error?.message || 'Inténtalo nuevamente.'));
+        } finally {
+          submitAddEmployeeBtn.disabled = false;
+          submitAddEmployeeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      });
+    }
+
+    function renderEmployees() {
+      if (!employeeList) return;
+      const fragment = document.createDocumentFragment();
+
+      employees.forEach(emp => {
+        const card = document.createElement('div');
+        const infoWrapper = document.createElement('div');
+        const nameEl = document.createElement('div');
+        const metaEl = document.createElement('div');
+        const idEl = document.createElement('div');
+        const actionsPanel = document.createElement('div');
+        const deleteBtn = document.createElement('button');
+        const attendanceWrapper = document.createElement('div');
+        const checkButton = document.createElement('button');
+        const timeEl = document.createElement('div');
+        const isChecked = Boolean(emp.checkedIn);
+        const hasCheckInTime = Boolean(emp.checkedInAt);
+        const isCheckedOut = Boolean(emp.checkedOut);
+        const normalizedName = emp.normalizedName ?? attachComputedFields(emp).normalizedName;
+
+        card.className = 'employee-card glass-panel gap-3 rounded-lg p-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-4';
+        card.dataset.name = normalizedName;
+        card.dataset.present = String(isChecked);
+
+        if (isReadOnlyDate) {
+          card.classList.add('opacity-60');
+        }
+
+        infoWrapper.className = 'employee-info flex-1 min-w-0 text-left';
+
+        nameEl.className = 'font-bold text-gray-800 whitespace-normal break-words sm:truncate';
+        nameEl.textContent = emp.name || 'Empleado sin nombre';
+
+        metaEl.className = 'text-sm text-gray-500';
+        metaEl.textContent = emp.department ? emp.department : 'Sin empresa';
+
+        idEl.className = 'mt-1 text-xs text-gray-400';
+        const idValue = String(emp.id || '');
+        idEl.textContent = idValue && !idValue.startsWith('manual-') ? `CURP: ${idValue}` : 'CURP: Pendiente';
+
+        infoWrapper.appendChild(nameEl);
+        infoWrapper.appendChild(metaEl);
+        infoWrapper.appendChild(idEl);
+
+        actionsPanel.className = 'employee-actions flex items-center justify-end gap-2 text-rose-500 sm:w-auto sm:justify-center sm:rounded-full sm:bg-gray-100 sm:px-3 sm:py-2';
+        if (!isEditMode) {
+          actionsPanel.classList.add('hidden');
+          actionsPanel.setAttribute('aria-hidden', 'true');
+        } else {
+          actionsPanel.classList.remove('hidden');
+          actionsPanel.removeAttribute('aria-hidden');
+        }
+
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'delete-employee-btn p-1.5 rounded-full hover:text-rose-600 transition-colors';
+        deleteBtn.dataset.id = String(emp.id);
+        deleteBtn.dataset.name = emp.name || '';
+        deleteBtn.setAttribute('aria-label', `Eliminar ${emp.name || 'empleado'}`);
+        const deleteIcon = createIcon('trash-2', { className: 'w-4 h-4' });
+        actionsPanel.appendChild(deleteBtn);
+        if (deleteIcon) {
+          deleteBtn.appendChild(deleteIcon);
+        } else {
+          deleteBtn.textContent = 'Eliminar';
+        }
+
+        attendanceWrapper.className = 'employee-attendance attendance-wrapper flex flex-col items-end gap-2 sm:w-auto sm:flex-col sm:items-center sm:justify-center sm:gap-3';
+
+        checkButton.className = 'checkmark h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center transition-colors sm:h-10 sm:w-10';
+        if (isReadOnlyDate) {
+          checkButton.classList.add('opacity-60', 'cursor-not-allowed');
+          checkButton.disabled = true;
+          checkButton.setAttribute('aria-disabled', 'true');
+        } else {
+          checkButton.classList.add('cursor-pointer');
+        }
+        if (isChecked) checkButton.classList.add('active');
+        if (isCheckedOut) checkButton.classList.add('checked-out');
+        checkButton.dataset.id = String(emp.id);
+        checkButton.setAttribute('aria-pressed', String(isChecked));
+
+        const iconWrapper = document.createElement('span');
+        iconWrapper.className = 'relative flex h-full w-full items-center justify-center';
+
+        const checkIcon = createIcon('check', { className: 'transition-opacity duration-200 w-4 h-4' });
+        if (checkIcon) {
+          checkIcon.dataset.role = 'check-icon';
+          if (!isChecked) checkIcon.classList.add('opacity-0');
+          if (isCheckedOut) checkIcon.classList.add('hidden');
+          iconWrapper.appendChild(checkIcon);
+        } else {
+          const fallbackCheck = document.createElement('span');
+          fallbackCheck.dataset.role = 'check-icon';
+          fallbackCheck.className = 'transition-opacity duration-200 text-xs font-semibold';
+          fallbackCheck.textContent = '✓';
+          fallbackCheck.setAttribute('aria-hidden', 'true');
+          if (!isChecked) fallbackCheck.classList.add('opacity-0');
+          if (isCheckedOut) fallbackCheck.classList.add('hidden');
+          iconWrapper.appendChild(fallbackCheck);
+        }
+
+        const exitIcon = createIcon('log-out', { className: 'transition-opacity duration-200 w-4 h-4' });
+        if (exitIcon) {
+          exitIcon.dataset.role = 'exit-icon';
+          if (!isCheckedOut) exitIcon.classList.add('hidden');
+          iconWrapper.appendChild(exitIcon);
+        } else {
+          const fallbackExit = document.createElement('span');
+          fallbackExit.dataset.role = 'exit-icon';
+          fallbackExit.className = 'transition-opacity duration-200 text-xs font-semibold';
+          fallbackExit.textContent = '↘';
+          fallbackExit.setAttribute('aria-hidden', 'true');
+          if (!isCheckedOut) fallbackExit.classList.add('hidden');
+          iconWrapper.appendChild(fallbackExit);
+        }
+
+        checkButton.appendChild(iconWrapper);
+
+        timeEl.className = 'attendance-time text-xs font-medium text-emerald-600 text-right mt-1 sm:mt-2 sm:text-center';
+        if (isCheckedOut) {
+          timeEl.textContent = 'Salida registrada';
+          timeEl.classList.remove('text-emerald-600');
+          timeEl.classList.add('checkout');
+          timeEl.classList.remove('hidden');
+        } else if (hasCheckInTime) {
+          timeEl.textContent = `Registro: ${formatCheckInTime(emp.checkedInAt)}`;
+          timeEl.classList.remove('hidden');
+          timeEl.classList.remove('checkout');
+          if (!timeEl.classList.contains('text-emerald-600')) {
+            timeEl.classList.add('text-emerald-600');
+          }
+        } else {
+          timeEl.textContent = '';
+          timeEl.classList.add('hidden');
+          timeEl.classList.remove('checkout');
+        }
+
+        attendanceWrapper.appendChild(checkButton);
+        attendanceWrapper.appendChild(timeEl);
+
+        card.appendChild(infoWrapper);
+        card.appendChild(actionsPanel);
+        card.appendChild(attendanceWrapper);
+
+        fragment.appendChild(card);
+      });
+
+      if (!employees.length) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
+        emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
+        fragment.appendChild(emptyState);
+      }
+
+      employeeList.replaceChildren(fragment);
+    }
+
+    function updateSearchClearButton() {
+      if (!searchInput || !searchClearButton) return;
+      const hasValue = searchInput.value.trim().length > 0;
+      searchClearButton.classList.toggle('hidden', !hasValue);
+      searchClearButton.setAttribute('aria-hidden', String(!hasValue));
+    }
+
+    function applyFiltersNow() {
+      if (!employeeList) return;
+      const rawSearchValue = searchInput ? searchInput.value : '';
+      const searchTerm = normalizeForSearch(rawSearchValue);
+      const cards = employeeList.querySelectorAll('.employee-card');
+      cards.forEach(card => {
+        const matchesName = !searchTerm || card.dataset.name.includes(searchTerm);
+        const matchesPresent = !showPresentOnly || card.dataset.present === 'true';
+        const shouldShow = matchesName && matchesPresent;
+        if (shouldShow) {
+          card.style.display = '';
+          card.hidden = false;
+        } else {
+          card.style.display = 'none';
+          card.hidden = true;
+        }
+      });
+      updateSearchClearButton();
+    }
+
+     function applyFilters() {
+      if (filterRaf !== null) {
+        cancelAnimationFrame(filterRaf);
+      }
+      filterRaf = requestAnimationFrame(() => {
+        filterRaf = null;
+        applyFiltersNow();
+      });
+    }
+
+    function updatePresentFilterButtonState() {
+      if (!presentFilterBtn) return;
+      presentFilterBtn.classList.toggle('ring-2', showPresentOnly);
+      presentFilterBtn.classList.toggle('ring-emerald-500', showPresentOnly);
+      presentFilterBtn.classList.toggle('bg-emerald-50', showPresentOnly);
+      presentFilterBtn.classList.toggle('bg-white', !showPresentOnly);
+      presentFilterBtn.setAttribute('aria-pressed', String(showPresentOnly));
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        applyFilters();
+      });
+    }
+
+    if (searchClearButton && searchInput) {
+      searchClearButton.addEventListener('click', () => {
+        searchInput.value = '';
+        applyFilters();
+        searchInput.focus();
+      });
+    }
+
+    if (presentFilterBtn) {
+      presentFilterBtn.addEventListener('click', () => {
+        showPresentOnly = !showPresentOnly;
+        updatePresentFilterButtonState();
+        applyFilters();
+      });
+    }
+
+    if (appMenuToggle) {
+      appMenuToggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const sheetIsOpen = appModeSheet && appModeSheet.classList.contains('active');
+        if (sheetIsOpen) {
+          closeAppModeSheet();
+        } else {
+          openAppModeSheet();
+        }
+      });
+    }
+
+    if (appModeEditBtn) {
+      appModeEditBtn.addEventListener('click', () => {
+        setEditMode(!isEditMode);
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeClose) {
+      appModeClose.addEventListener('click', () => {
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeModulesLink) {
+      appModeModulesLink.addEventListener('click', () => {
+        closeAppModeSheet();
+      });
+    }
+
+    if (appModeSheet) {
+      appModeSheet.addEventListener('click', (event) => {
+        if (event.target === appModeSheet) {
+          closeAppModeSheet();
+        }
+      });
+    }
+
+    function updatePresentCount() {
+      const presentCount = employees.filter((employee) => employee.checkedIn).length;
+      presentCountElements.forEach((element) => {
+        element.textContent = presentCount;
+      });
+    }
+    
+    function updateTotalCount() {
+      const totalCount = employees.length;
+      totalCountElements.forEach((element) => {
+        element.textContent = totalCount;
+      });
+    }
+
+    function updateReadOnlyBanner() {
+      if (isReadOnlyDate) {
+        readOnlyBanner.textContent = 'Este día no cuenta con registros de asistencia previos, por lo que la captura está deshabilitada.';
+        readOnlyBanner.classList.remove('hidden');
+      } else {
+        readOnlyBanner.classList.add('hidden');
+      }
+    }
+
+    function hideClearConfirmation() {
+      if (clearConfirmationCard) clearConfirmationCard.classList.add('hidden');
+    }
+
+    function showClearConfirmation() {
+      if (!clearConfirmationCard) return;
+      if (clearConfirmationDate) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        clearConfirmationDate.textContent = currentDate.toLocaleDateString('es-MX', options);
+      }
+      hideClearToast();
+      clearConfirmationCard.classList.remove('hidden');
+    }
+
+    function hideClearToast() {
+      if (clearToastTimeout) {
+        clearTimeout(clearToastTimeout);
+        clearToastTimeout = null;
+      }
+      if (clearToast) clearToast.classList.add('hidden');
+    }
+
+    function showClearToast(message) {
+      if (!clearToast) return;
+      clearToast.textContent = message;
+      clearToast.classList.remove('hidden');
+      if (clearToastTimeout) clearTimeout(clearToastTimeout);
+      clearToastTimeout = setTimeout(() => {
+        if (clearToast) clearToast.classList.add('hidden');
+        clearToastTimeout = null;
+      }, 3000);
+    }
+
+    async function clearAttendanceForCurrentDate() {
+      const dateStr = formatForInput(currentDate);
+      try {
+        const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo limpiar la asistencia.');
+        }
+        employees = employees.map(emp => ({
+          ...emp,
+          checkedIn: false,
+          attendanceRecorded: false,
+          checkedInAt: null,
+          checkedOut: false,
+        }));
+        clearCheckoutStateForDate(dateStr);
+        attendanceHasRecords = false;
+        recalculateReadOnlyState();
+        refreshUI();
+        showClearToast('Asistencias del día eliminadas.');
+      } catch (error) {
+        console.error('Error al limpiar asistencia:', error);
+        alert(
+          'No se pudo limpiar la asistencia en Neon. ' +
+            'Detalle: ' +
+            (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
+        );
+      }
+    }
+    
+function updateActionSheetKeyboardOffset() {
+      if (!attendanceActionSheet) return;
+      const viewport = window.visualViewport;
+      if (!attendanceActionSheet.classList.contains('active')) {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+        return;
+      }
+      if (!viewport) {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+        return;
+      }
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      if (offset > 12) {
+        attendanceActionSheet.classList.add('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', `${offset}px`);
+      } else {
+        attendanceActionSheet.classList.remove('keyboard-open');
+        attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+      }
+    }
+if (window.visualViewport) {
+      const handleViewportChange = () => {
+        if (attendanceActionSheet && attendanceActionSheet.classList.contains('active')) {
+          updateActionSheetKeyboardOffset();
+        }
+      };
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+    }
+
+function openAttendanceActionSheet(context) {
+      if (!attendanceActionSheet) return;
+      pendingCheckAction = context;
+      const employeeName = context.emp?.name ? context.emp.name : 'este colaborador';
+      if (attendanceActionMessage) {
+        attendanceActionMessage.textContent = `Selecciona una opción para ${employeeName}.`;
+      }
+      attendanceActionSheet.classList.remove('hidden');
+      attendanceActionSheet.classList.add('active');
+      requestAnimationFrame(() => updateActionSheetKeyboardOffset());
+      }
+      function closeAttendanceActionSheet(clearContext = true) {
+      if (!attendanceActionSheet) return;
+      attendanceActionSheet.classList.remove('active', 'keyboard-open');
+      attendanceActionSheet.classList.add('hidden');
+      attendanceActionSheet.style.setProperty('--keyboard-offset', '0px');
+      if (clearContext) {
+        pendingCheckAction = null;
+        }
+            }
+
+    function applyCheckInAction(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
+      mark.classList.add('active');
+      mark.classList.remove('checked-out');
+      mark.setAttribute('aria-pressed', 'true');
+      if (checkIcon) {
+        checkIcon.classList.remove('hidden');
+        checkIcon.classList.remove('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.add('hidden');
+      }
+      const checkInIso = new Date().toISOString();
+      emp.checkedIn = true;
+      emp.checkedInAt = checkInIso;
+      emp.checkedOut = false;
+      emp.attendanceRecorded = true;
+      if (card) card.dataset.present = 'true';
+      if (timeEl) {
+        timeEl.textContent = `Registro: ${formatCheckInTime(checkInIso)}`;
+        timeEl.classList.remove('hidden');
+        timeEl.classList.remove('checkout');
+        if (!timeEl.classList.contains('text-emerald-600')) {
+          timeEl.classList.add('text-emerald-600');
+        }
+      }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, false);
+      attendanceHasRecords = true;
+      recalculateReadOnlyState();
+      updatePresentCount();
+      updateClearButtonState();
+      applyFilters();
+      updateEmployeeCheckStatus(emp.id, true, { previousRecorded, previousCheckedInAt });
+      }
+
+    function applyRemoveAttendance(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
+      mark.classList.remove('active', 'checked-out');
+      mark.setAttribute('aria-pressed', 'false');
+      if (checkIcon) {
+        checkIcon.classList.remove('hidden');
+        checkIcon.classList.add('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.add('hidden');
+      }
+      emp.checkedIn = false;
+      emp.checkedOut = false;
+      emp.checkedInAt = null;
+      emp.attendanceRecorded = false;
+      if (card) card.dataset.present = 'false';
+      if (timeEl) {
+        timeEl.textContent = '';
+        timeEl.classList.add('hidden');
+        timeEl.classList.remove('checkout');
+        if (!timeEl.classList.contains('text-emerald-600')) {
+          timeEl.classList.add('text-emerald-600');
+        }
+      }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, false);
+      attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
+      recalculateReadOnlyState();
+      updatePresentCount();
+      updateClearButtonState();
+      applyFilters();
+      updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+    }
+
+    function applyCheckoutAttendance(context) {
+      const { mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card } = context;
+      mark.classList.remove('active');
+      mark.classList.add('checked-out');
+      mark.setAttribute('aria-pressed', 'false');
+      if (checkIcon) {
+        checkIcon.classList.add('hidden');
+        checkIcon.classList.add('opacity-0');
+      }
+      if (exitIcon) {
+        exitIcon.classList.remove('hidden');
+        exitIcon.classList.remove('opacity-0');
+      }
+      emp.checkedIn = false;
+      emp.checkedOut = true;
+      emp.checkedInAt = null;
+      emp.attendanceRecorded = false;
+      if (card) card.dataset.present = 'false';
+      if (timeEl) {
+        timeEl.textContent = 'Salida registrada';
+        timeEl.classList.remove('hidden');
+        timeEl.classList.add('checkout');
+        timeEl.classList.remove('text-emerald-600');
+      }
+      const dateStr = formatForInput(currentDate);
+      setCheckoutStateForEmployee(dateStr, emp.id, true);
+      attendanceHasRecords = employees.some(employee => employee.attendanceRecorded);
+      recalculateReadOnlyState();
+      updatePresentCount();
+      updateClearButtonState();
+      applyFilters();
+      updateEmployeeCheckStatus(emp.id, false, { previousRecorded, previousCheckedInAt });
+    }
+
+    document.addEventListener('click', (event) => {
+      const mark = event.target.closest('.checkmark');
+      if (!mark || mark.disabled || isReadOnlyDate) return;
+
+      const employeeId = mark.getAttribute('data-id');
+      if (!employeeId) return;
+
+      const emp = employees.find(x => String(x.id) === employeeId);
+      if (!emp) return;
+
+      const attendanceWrapper = mark.closest('.attendance-wrapper');
+      const timeEl = attendanceWrapper ? attendanceWrapper.querySelector('.attendance-time') : null;
+      const checkIcon = mark.querySelector('[data-role="check-icon"]');
+      const exitIcon = mark.querySelector('[data-role="exit-icon"]');
+      const card = mark.closest('.employee-card');
+      const previousRecorded = Boolean(emp.attendanceRecorded);
+      const previousCheckedInAt = emp.checkedInAt;
+
+      if (emp.checkedIn || emp.checkedOut) {
+        openAttendanceActionSheet({ mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card });
+        return;
+      }
+
+      applyCheckInAction({ mark, checkIcon, exitIcon, emp, timeEl, previousRecorded, previousCheckedInAt, card });
+    });
+
+    if (attendanceActionCancel) {
+      attendanceActionCancel.addEventListener('click', () => {
+        closeAttendanceActionSheet();
+      });
+    }
+
+    if (attendanceActionSheet) {
+      attendanceActionSheet.addEventListener('click', (event) => {
+        if (event.target === attendanceActionSheet) {
+          closeAttendanceActionSheet();
+        }
+      });
+    }
+
+    if (attendanceRemoveBtn) {
+      attendanceRemoveBtn.addEventListener('click', () => {
+        if (!pendingCheckAction) return;
+        const context = pendingCheckAction;
+        closeAttendanceActionSheet(false);
+        pendingCheckAction = null;
+        applyRemoveAttendance(context);
+      });
+    }
+
+    if (attendanceCheckoutBtn) {
+      attendanceCheckoutBtn.addEventListener('click', () => {
+        if (!pendingCheckAction) return;
+        const context = pendingCheckAction;
+        closeAttendanceActionSheet(false);
+        pendingCheckAction = null;
+        applyCheckoutAttendance(context);
+      });
+    }
+
+    document.addEventListener('click', async (event) => {
+      const deleteBtn = event.target.closest('.delete-employee-btn');
+      if (!deleteBtn) return;
+      if (!isEditMode) return;
+
+      const employeeId = deleteBtn.getAttribute('data-id');
+      if (!employeeId) return;
+
+      const employeeName = deleteBtn.getAttribute('data-name') || 'este colaborador';
+      const confirmed = confirm(`¿Eliminar a ${employeeName}? Esta acción quitará su historial de asistencia.`);
+      if (!confirmed) return;
+
+      try {
+        await deleteEmployeeFromServer(employeeId, formatForInput(currentDate));
+      } catch (error) {
+        alert('No se pudo eliminar al empleado. ' + (error?.message || 'Inténtalo nuevamente.'));
+      }
+    });
+
+    function exportExcel() {
+      const dateStr = formatForInput(currentDate);
+      const workbook = XLSX.utils.book_new();
+      const checkValue = '✓';
+      const uncheckValue = '✗';
+
+      const headerRow = ['Fecha', 'CURP', 'Nombre', 'Puesto', 'Empresa', 'Asistencia', 'TOTAL FT', '', '', 'SI ASISTIÓ', 'NO ASISTIÓ'];
+      const employeeRows = employees.map((employee) => [
+        dateStr,
+        employee.id,
+        employee.name,
+        employee.position,
+        employee.department,
+        employee.checkedIn ? checkValue : uncheckValue,
+      ]);
+
+      const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...employeeRows]);
+
+      worksheet['J2'] = { v: checkValue };
+      worksheet['K2'] = { v: uncheckValue };
+      worksheet['G2'] = { t: 'n', f: 'CONTAR.SI(F:F,J2)' };
+
+      worksheet['!cols'] = [
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 32 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 4 },
+        { wch: 4 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Asistencia');
+      XLSX.writeFile(workbook, `asistencia_${dateStr}.xlsx`);
+    }
+
+    document.getElementById('export-btn').addEventListener('click', exportExcel);
+
+    const importBtn = document.getElementById('import-btn');
+    const importFileInput = document.getElementById('import-file');
+
+    importBtn.addEventListener('click', () => importFileInput.click());
+
+    importFileInput.addEventListener('change', (event) => {
+      const [file] = event.target.files || [];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const [firstSheetName] = workbook.SheetNames;
+          if (!firstSheetName) throw new Error('El archivo no contiene hojas.');
+
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          const normalized = rows.map(normalizeEmployee).filter(emp => emp.name);
+          if (!normalized.length) {
+            alert('No se encontraron filas válidas en el archivo.');
+            refreshUI();
+            return;
+          }
+
+          await saveEmployeesToServer(normalized);
+        } catch (error) {
+          console.error(error);
+          alert('No se pudo leer el archivo. Verifica que tenga encabezados como CURP, Nombre, Puesto y Empresa.');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    if (clearAttendanceBtn) {
+      clearAttendanceBtn.addEventListener('click', () => {
+        if (clearAttendanceBtn.disabled) return;
+        showClearConfirmation();
+      });
+    }
+
+    if (cancelClearBtn) {
+      cancelClearBtn.addEventListener('click', hideClearConfirmation);
+    }
+
+    if (confirmClearBtn) {
+      confirmClearBtn.addEventListener('click', async () => {
+        hideClearConfirmation();
+        await clearAttendanceForCurrentDate();
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        hideClearConfirmation();
+        hideAddEmployeeModal();
+        closeAppModeSheet();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!clearConfirmationCard || clearConfirmationCard.classList.contains('hidden')) return;
+      if (clearConfirmationCard.contains(event.target)) return;
+      if (event.target === clearAttendanceBtn) return;
+      hideClearConfirmation();
+    });
+
+    updateEditModeUI();
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateDateDisplay();
+      const hydrated = replaceStaticIcons();
+      if (!hydrated) {
+        window.addEventListener('load', () => replaceStaticIcons(), { once: true });
+      }
+      await loadEmployeesFromServer(currentDate);
+    });
+  </script>
+  
+</body>
+</html>
