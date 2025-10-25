@@ -555,170 +555,7 @@
     let attendanceHasRecords = false;
     let isReadOnlyDate = false;
     let isEditMode = false;
-    let hasShownLocalDatasetNotice = false;
-
-    const LOCAL_WORKER_DATASET_SIZE = 3000;
-    const LOCAL_WORKER_SEED = [
-      {
-        name: 'Arenas Jiménez, María de Jesús',
-        position: 'Técnica de instalaciones',
-        company: 'Rhon Mont',
-        connection: 'Infonavit',
-        shift: 'Turno A',
-        crew: 'Cuadrilla 01',
-        nss: '92134567890',
-        curp: 'AJMJ890101MDFRRS01',
-      },
-      {
-        name: 'De Alba Navarro, Cristopher Andrés',
-        position: 'Oficial albañil',
-        company: 'Tecnia',
-        connection: 'Fonacot',
-        shift: 'Turno B',
-        crew: 'Cuadrilla 02',
-        nss: '92134567891',
-        curp: 'DANC900215HGTBRS02',
-      },
-      {
-        name: 'Meza Hernández, Salvador Ulises',
-        position: 'Ayudante general',
-        company: 'Jessa',
-        connection: 'Infonavit',
-        shift: 'Turno C',
-        crew: 'Cuadrilla 03',
-        nss: '92134567892',
-        curp: 'MHSU930718HDFZRL03',
-      },
-      {
-        name: 'Ortiz Carranza, Erika Berenice',
-        position: 'Supervisora de obra',
-        company: 'Constructora Azul',
-        connection: 'Caja local',
-        shift: 'Turno A',
-        crew: 'Cuadrilla 04',
-        nss: '92134567893',
-        curp: 'OCEB880924MDFRRL04',
-      },
-      {
-        name: 'Hernández López, Marco Antonio',
-        position: 'Soldador estructural',
-        company: 'Montajes Rivera',
-        connection: 'Infonavit',
-        shift: 'Turno Nocturno',
-        crew: 'Cuadrilla 05',
-        nss: '92134567894',
-        curp: 'HAMA910305HDFRRC05',
-      },
-      {
-        name: 'Juárez Castillo, Alma Patricia',
-        position: 'Electricista',
-        company: 'Logística Premier',
-        connection: 'Fonacot',
-        shift: 'Turno Mixto',
-        crew: 'Cuadrilla 06',
-        nss: '92134567895',
-        curp: 'JCAP920611MDFRSL06',
-      },
-    ];
-    const LOCAL_WORKER_FIRST_NAMES = [
-      'María',
-      'José',
-      'Juan',
-      'Ana',
-      'Luis',
-      'Guadalupe',
-      'Miguel',
-      'Laura',
-      'Francisco',
-      'Rosa',
-      'Arturo',
-      'Leticia',
-    ];
-    const LOCAL_WORKER_SECOND_NAMES = [
-      'Alejandra',
-      'Antonio',
-      'Soledad',
-      'Isabel',
-      'Fernando',
-      'Patricia',
-      'Eduardo',
-      'Teresa',
-      'Roberto',
-      'Yolanda',
-      'Emilio',
-      'Estefanía',
-    ];
-    const LOCAL_WORKER_LAST_NAMES = [
-      'García',
-      'Martínez',
-      'López',
-      'Hernández',
-      'González',
-      'Rodríguez',
-      'Pérez',
-      'Sánchez',
-      'Ramírez',
-      'Flores',
-      'Torres',
-      'Vargas',
-    ];
-    const LOCAL_WORKER_SECOND_LAST_NAMES = [
-      'Juárez',
-      'Castillo',
-      'Navarro',
-      'Reyes',
-      'Mendoza',
-      'Campos',
-      'Domínguez',
-      'Ortega',
-      'Silva',
-      'Cortés',
-      'Valdez',
-      'Rivas',
-    ];
-    const LOCAL_WORKER_POSITIONS = [
-      'Oficial de obra',
-      'Ayudante general',
-      'Carpintero',
-      'Electricista',
-      'Herrero',
-      'Pailero',
-      'Topógrafo',
-      'Soldador',
-      'Supervisor de seguridad',
-      'Fontanero',
-      'Operador de retroexcavadora',
-      'Albañil',
-    ];
-    const LOCAL_WORKER_COMPANIES = [
-      'Rhon Mont',
-      'Tecnia',
-      'Jessa',
-      'Constructora Azul',
-      'Montajes Rivera',
-      'Logística Premier',
-      'Grupo Lumen',
-      'Infraestructura del Norte',
-      'Proyectos Sierra',
-      'Estructuras del Pacífico',
-      'Servicios Delta',
-      'Concretos Alfa',
-    ];
-    const LOCAL_WORKER_CONNECTIONS = [
-      'Infonavit',
-      'Fonacot',
-      'Caja local',
-      'Nómina directa',
-      'Cooperativa',
-      'Sindicato',
-    ];
-    const LOCAL_WORKER_SHIFTS = [
-      'Turno A',
-      'Turno B',
-      'Turno C',
-      'Turno Mixto',
-      'Turno Nocturno',
-    ];
+    let hasShownNoDataNotice = false;
 
     const employeeList = document.getElementById('employee-list');
     const searchInput = document.getElementById('search-input');
@@ -848,53 +685,6 @@
       showMoreContainer.classList.toggle('hidden', !canShowMore);
       showMoreContainer.setAttribute('aria-hidden', String(!canShowMore));
       showMoreBtn.disabled = !canShowMore;
-    }
-
-    function generateSyntheticWorkerProfile(index) {
-      const offset = Math.max(index - LOCAL_WORKER_SEED.length, 0);
-      const first = LOCAL_WORKER_FIRST_NAMES[offset % LOCAL_WORKER_FIRST_NAMES.length];
-      const second = LOCAL_WORKER_SECOND_NAMES[Math.floor(offset / LOCAL_WORKER_FIRST_NAMES.length) % LOCAL_WORKER_SECOND_NAMES.length];
-      const last = LOCAL_WORKER_LAST_NAMES[Math.floor(offset / (LOCAL_WORKER_FIRST_NAMES.length * LOCAL_WORKER_SECOND_NAMES.length)) % LOCAL_WORKER_LAST_NAMES.length];
-      const secondLast = LOCAL_WORKER_SECOND_LAST_NAMES[Math.floor(offset / (LOCAL_WORKER_FIRST_NAMES.length * LOCAL_WORKER_SECOND_NAMES.length * LOCAL_WORKER_LAST_NAMES.length)) % LOCAL_WORKER_SECOND_LAST_NAMES.length];
-      const name = `${first} ${second} ${last} ${secondLast}`;
-      const position = LOCAL_WORKER_POSITIONS[offset % LOCAL_WORKER_POSITIONS.length];
-      const company = LOCAL_WORKER_COMPANIES[Math.floor(offset / LOCAL_WORKER_POSITIONS.length) % LOCAL_WORKER_COMPANIES.length];
-      const connection = LOCAL_WORKER_CONNECTIONS[offset % LOCAL_WORKER_CONNECTIONS.length];
-      const shift = LOCAL_WORKER_SHIFTS[offset % LOCAL_WORKER_SHIFTS.length];
-      const crew = `Cuadrilla ${String((offset % 40) + 1).padStart(2, '0')}`;
-      const nss = String(93000000000 + index).slice(-11);
-      const curp = `OBR${String(index + 1).padStart(10, '0')}`;
-      return { name, position, company, connection, shift, crew, nss, curp };
-    }
-
-    function buildLocalWorkerDataset(size = LOCAL_WORKER_DATASET_SIZE) {
-      const dataset = [];
-      for (let index = 0; index < size; index++) {
-        const template = index < LOCAL_WORKER_SEED.length ? LOCAL_WORKER_SEED[index] : generateSyntheticWorkerProfile(index);
-        dataset.push({
-          id: `OBR-${String(index + 1).padStart(5, '0')}`,
-          name: template.name,
-          position: template.position,
-          department: template.company,
-          checkedIn: false,
-          attendanceRecorded: false,
-          checkedInAt: null,
-          metadata: {
-            nss: template.nss,
-            curp: template.curp,
-            company: template.company,
-            connection: template.connection,
-            shift: template.shift,
-            crew: template.crew,
-          },
-        });
-      }
-      return dataset;
-    }
-
-    function useLocalWorkerDataset() {
-      employees = buildLocalWorkerDataset();
-      attendanceHasRecords = false;
     }
 
     function attachComputedFields(employee) {
@@ -1317,6 +1107,7 @@
       clearAttendanceBtn.classList.toggle('text-rose-500', !shouldDisable);
       clearAttendanceBtn.setAttribute('aria-disabled', String(shouldDisable));
     }
+
     
     async function loadEmployeesFromServer(targetDate = currentDate) {
       let fallbackTriggered = false;
@@ -1335,7 +1126,8 @@
           employees = [];
         }
         if (!employees.length) {
-          useLocalWorkerDataset();
+          employees = [];
+          attendanceHasRecords = false;
           fallbackTriggered = true;
           fallbackReason = fallbackReason || 'empty';
         }
@@ -1350,17 +1142,18 @@
         if (debugInfo) {
           console.error('Información de depuración del servidor:', debugInfo);
         }
-        useLocalWorkerDataset();
+        employees = [];
+        attendanceHasRecords = false;
         fallbackTriggered = true;
         fallbackReason = 'error';
       } finally {
-        if (fallbackTriggered && !hasShownLocalDatasetNotice) {
+        if (fallbackTriggered && !hasShownNoDataNotice) {
           const message =
             fallbackReason === 'error'
-              ? 'No se pudo conectar con la base remota de obreros. Se cargó la base local de referencia.'
-              : 'La base remota de obreros aún no tiene registros. Se cargó la base local de referencia para continuar.';
+              ? 'No se pudo conectar con la base remota de obreros. No hay datos disponibles todavía.'
+              : 'La base remota de obreros aún no tiene registros. Importa un archivo desde Excel para comenzar.';
           alert(message);
-          hasShownLocalDatasetNotice = true;
+          hasShownNoDataNotice = true;
         }
         recalculateReadOnlyState();
         resetVisibleEmployeeLimit();
