@@ -360,17 +360,11 @@
         </div>
         <div class="header-actions flex flex-nowrap sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 pr-1 text-sm text-gray-600 overflow-x-auto sm:overflow-visible">
           <div id="stats-mobile-mount" class="sm:hidden flex flex-shrink-0 items-stretch gap-2 order-3 sm:order-none"></div>
-          <button id="import-btn" class="flex flex-shrink-0 items-center justify-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
-            <i data-feather="upload" class="w-5 h-5"></i>
-            <span class="hidden sm:inline">Importar desde Excel</span>
-            <span class="sr-only">Importar empleados desde Excel</span>
-          </button>
-          <button id="add-employee-btn" class="flex flex-shrink-0 items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-2 sm:order-none">
+          <button id="add-employee-btn" class="flex flex-shrink-0 items-center space-x-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg transition-colors order-1 sm:order-none">
             <i data-feather="user-plus" class="w-5 h-5"></i>
             <span class="hidden sm:inline">Agregar personal</span>
             <span class="sr-only">Agregar nuevo personal</span>
           </button>
-          <input id="import-file" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
           <button id="date-selector" class="order-4 sm:order-none flex flex-shrink-0 items-center space-x-2 hover:bg-gray-100 px-3 py-2 rounded-lg">
             <i data-feather="calendar" class="w-5 h-5"></i>
             <span id="current-date" class="hidden sm:inline"></span>
@@ -550,6 +544,7 @@
 
   <script>
     const API_BASE_URL = '/.netlify/functions/obreros';
+    const LOCAL_DATA_URL = 'data/personal_unicos.min.json';
     let employees = [];
     let currentDate = new Date();
     let attendanceHasRecords = false;
@@ -673,9 +668,10 @@
       return employees.filter((employee) => {
         if (!employee) return false;
         attachComputedFields(employee);
-        const matchesName = !searchTerm || (employee.normalizedName || '').includes(searchTerm);
+        const normalizedSearch = employee.normalizedSearch || '';
+        const matchesSearch = !searchTerm || normalizedSearch.includes(searchTerm);
         const matchesPresent = !showPresentOnly || Boolean(employee.checkedIn);
-        return matchesName && matchesPresent;
+        return matchesSearch && matchesPresent;
       });
     }
 
@@ -690,6 +686,10 @@
     function attachComputedFields(employee) {
       if (!employee) return employee;
       employee.normalizedName = normalizeForSearch(employee.name || '');
+      const searchable = [employee.name, employee.position, employee.department, employee.company, employee.curp]
+        .filter(Boolean)
+        .join(' ');
+      employee.normalizedSearch = normalizeForSearch(searchable);
       return employee;
     }
 
@@ -1049,15 +1049,48 @@
 
     function mapServerEmployee(emp = {}) {
       const checkedInAtValue = emp.checkedInAt || emp.checked_in_at || null;
+      const companyValue = emp.company || emp.companyName || emp.company_name || '';
+      const curpValue = emp.curp || emp.CURP || '';
       return {
         id: emp.id,
         name: emp.name || '',
         position: emp.position || '',
-        department: emp.department || '',
+        department: emp.department || companyValue || '',
         checkedIn: Boolean(emp.checkedIn),
         attendanceRecorded: Boolean(emp.attendanceRecorded),
         checkedInAt: checkedInAtValue ? String(checkedInAtValue) : null,
+        company: companyValue,
+        curp: curpValue,
       };
+    }
+
+    function mapLocalEmployee(entry = {}, dateStr = formatForInput(currentDate)) {
+      const curp = entry.CURP || entry.curp || entry.id || '';
+      const company = entry.Empresa_Edit || entry.Empresa || entry.empresa_edit || entry.empresa || '';
+      const name = entry.Nombre || entry.name || '';
+      const normalizedEmployee = {
+        id: curp || entry.id || '',
+        name,
+        position: entry.Puesto || entry.position || '',
+        department: company || entry.Departamento || entry.department || '',
+        checkedIn: false,
+        attendanceRecorded: false,
+        checkedInAt: null,
+        company,
+        curp,
+      };
+      const withCheckout = applyCheckoutStateToEmployee(normalizedEmployee, dateStr);
+      return attachComputedFields(withCheckout);
+    }
+
+    async function loadLocalEmployees(dateStr = formatForInput(currentDate)) {
+      const response = await fetch(LOCAL_DATA_URL);
+      if (!response.ok) {
+        throw new Error('No se pudo cargar la base de datos local.');
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) return [];
+      return data.map(entry => mapLocalEmployee(entry, dateStr)).filter(emp => emp.name);
     }
 
     function formatCheckInTime(isoString) {
@@ -1112,8 +1145,8 @@
     async function loadEmployeesFromServer(targetDate = currentDate) {
       let fallbackTriggered = false;
       let fallbackReason = '';
+      const dateStr = formatForInput(targetDate);
       try {
-        const dateStr = formatForInput(targetDate);
         const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`);
         if (!response.ok) {
           const message = await parseErrorResponse(response);
@@ -1146,19 +1179,40 @@
         attendanceHasRecords = false;
         fallbackTriggered = true;
         fallbackReason = 'error';
-      } finally {
-        if (fallbackTriggered && !hasShownNoDataNotice) {
-          const message =
-            fallbackReason === 'error'
-              ? 'No se pudo conectar con la base remota de obreros. No hay datos disponibles todavía.'
-              : 'La base remota de obreros aún no tiene registros. Importa un archivo desde Excel para comenzar.';
-          alert(message);
-          hasShownNoDataNotice = true;
-        }
-        recalculateReadOnlyState();
-        resetVisibleEmployeeLimit();
-        refreshUI();
       }
+
+      if (!employees.length) {
+        try {
+          const localEmployees = await loadLocalEmployees(dateStr);
+          if (localEmployees.length) {
+            employees = localEmployees;
+            attendanceHasRecords = false;
+            fallbackTriggered = false;
+            fallbackReason = '';
+          } else if (!fallbackReason) {
+            fallbackTriggered = true;
+            fallbackReason = 'local-empty';
+          }
+        } catch (localError) {
+          console.error('Error al cargar la base de datos local de obreros:', localError);
+          if (!fallbackReason) {
+            fallbackReason = 'local-error';
+          }
+          fallbackTriggered = true;
+        }
+      }
+
+      if (fallbackTriggered && !hasShownNoDataNotice) {
+        const message =
+          fallbackReason === 'error'
+            ? 'No se pudo conectar con la base remota de obreros ni cargar la base local.'
+            : 'No se encontraron registros de obreros disponibles para mostrar.';
+        alert(message);
+        hasShownNoDataNotice = true;
+      }
+      recalculateReadOnlyState();
+      resetVisibleEmployeeLimit();
+      refreshUI();
     }
 
     async function saveEmployeesToServer(newEmployees) {
@@ -1381,11 +1435,19 @@
         nameEl.textContent = emp.name || 'Empleado sin nombre';
 
         metaEl.className = 'text-sm text-gray-500';
-        metaEl.textContent = emp.department ? emp.department : 'Sin información';
+        const companyLabel = emp.company || emp.department || emp.position || 'Sin información';
+        metaEl.textContent = companyLabel;
 
         idEl.className = 'mt-1 text-xs text-gray-400';
         const idValue = String(emp.id || '');
-        idEl.textContent = idValue && !idValue.startsWith('manual-') ? `ID: ${idValue}` : 'ID: Pendiente';
+        const curpValue = emp.curp || (idValue && !idValue.startsWith('manual-') ? idValue : '');
+        if (curpValue) {
+          idEl.textContent = `CURP: ${curpValue}`;
+        } else if (idValue && !idValue.startsWith('manual-')) {
+          idEl.textContent = `ID: ${idValue}`;
+        } else {
+          idEl.textContent = 'CURP: No registrado';
+        }
 
         infoWrapper.appendChild(nameEl);
         infoWrapper.appendChild(metaEl);
@@ -1497,7 +1559,7 @@
       if (!hasEmployees) {
         const emptyState = document.createElement('div');
         emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
-        emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
+        emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados disponibles.</p><p class="text-sm">Verifica la base de datos local o intenta de nuevo más tarde.</p>';
         fragment.appendChild(emptyState);
       } else if (!hasFilteredEmployees) {
         const emptySearchState = document.createElement('div');
@@ -1969,43 +2031,6 @@ function openAttendanceActionSheet(context) {
     }
 
     document.getElementById('export-btn').addEventListener('click', exportExcel);
-
-    const importBtn = document.getElementById('import-btn');
-    const importFileInput = document.getElementById('import-file');
-
-    importBtn.addEventListener('click', () => importFileInput.click());
-
-    importFileInput.addEventListener('change', (event) => {
-      const [file] = event.target.files || [];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const [firstSheetName] = workbook.SheetNames;
-          if (!firstSheetName) throw new Error('El archivo no contiene hojas.');
-
-          const worksheet = workbook.Sheets[firstSheetName];
-          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-          const normalized = rows.map(normalizeEmployee).filter(emp => emp.name);
-          if (!normalized.length) {
-            alert('No se encontraron filas válidas en el archivo.');
-            refreshUI();
-            return;
-          }
-
-          await saveEmployeesToServer(normalized);
-        } catch (error) {
-          console.error(error);
-          alert('No se pudo leer el archivo. Verifica que tenga encabezados como ID, Nombre, Puesto y Departamento.');
-        } finally {
-          event.target.value = '';
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    });
 
     if (clearAttendanceBtn) {
       clearAttendanceBtn.addEventListener('click', () => {
