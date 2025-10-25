@@ -326,32 +326,13 @@
               id="app-menu-toggle"
               type="button"
               class="flex h-10 w-10 items-center justify-center rounded-full bg-white/70 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-              aria-haspopup="menu"
+              aria-haspopup="dialog"
               aria-expanded="false"
-              aria-controls="app-menu"
+              aria-controls="app-mode-sheet"
             >
               <img src="journey_no_bg.png" alt="JSC Logo" class="h-8 w-8 object-contain" loading="lazy" />
               <span class="sr-only">Abrir menú principal</span>
             </button>
-            <div
-              id="app-menu"
-              class="absolute left-0 z-20 mt-2 w-48 glass-panel rounded-lg py-2 shadow-lg hidden"
-              role="menu"
-              aria-labelledby="app-menu-toggle"
-            >
-              <button
-                id="edit-mode-toggle"
-                type="button"
-                class="flex w-full items-center justify-between px-4 py-2 text-sm text-gray-700 transition hover:bg-emerald-50"
-                role="menuitem"
-              >
-                <span id="edit-mode-label">Activar modo edición</span>
-                <span
-                  id="edit-mode-status"
-                  class="text-xs font-medium text-emerald-600 hidden"
-                >Activo</span>
-              </button>
-            </div>
           </div>
           <h1 class="hidden text-lg font-semibold text-gray-800 sm:block">JSC</h1>
           <span class="sr-only">JSC</span>
@@ -596,10 +577,6 @@
     const attendanceRemoveBtn = document.getElementById('attendance-remove-btn');
     const attendanceCheckoutBtn = document.getElementById('attendance-checkout-btn');
     const appMenuToggle = document.getElementById('app-menu-toggle');
-    const appMenu = document.getElementById('app-menu');
-    const editModeToggle = document.getElementById('edit-mode-toggle');
-    const editModeLabel = document.getElementById('edit-mode-label');
-    const editModeStatus = document.getElementById('edit-mode-status');
     const appModeSheet = document.getElementById('app-mode-sheet');
     const appModeEditBtn = document.getElementById('app-mode-edit-btn');
     const appModeEditText = document.getElementById('app-mode-edit-text');
@@ -762,22 +739,6 @@
       }
     }
 
-    function openAppMenu() {
-      if (!appMenu) return;
-      appMenu.classList.remove('hidden');
-      if (appMenuToggle) {
-        appMenuToggle.setAttribute('aria-expanded', 'true');
-      }
-    }
-
-    function closeAppMenu() {
-      if (!appMenu) return;
-      appMenu.classList.add('hidden');
-      if (appMenuToggle) {
-        appMenuToggle.setAttribute('aria-expanded', 'false');
-      }
-    }
-
     function updateAppModeOptionTexts() {
       if (appModeEditText) {
         appModeEditText.textContent = isEditMode ? 'Desactivar modo edición' : 'Activar modo edición';
@@ -804,6 +765,9 @@
       appModeSheet.classList.remove('hidden');
       appModeSheet.classList.add('active');
       document.body.classList.add('modal-open');
+      if (appMenuToggle) {
+        appMenuToggle.setAttribute('aria-expanded', 'true');
+      }
       requestAnimationFrame(() => {
         if (appModeEditBtn) {
           appModeEditBtn.focus();
@@ -816,23 +780,12 @@
       appModeSheet.classList.remove('active');
       appModeSheet.classList.add('hidden');
       document.body.classList.remove('modal-open');
+      if (appMenuToggle) {
+        appMenuToggle.setAttribute('aria-expanded', 'false');
+      }
     }
 
     function updateEditModeUI() {
-      if (editModeLabel) {
-        editModeLabel.textContent = isEditMode ? 'Desactivar modo edición' : 'Activar modo edición';
-      }
-      if (editModeStatus) {
-        editModeStatus.classList.toggle('hidden', !isEditMode);
-        if (isEditMode) {
-          editModeStatus.textContent = 'Activo';
-        } else {
-          editModeStatus.textContent = '';
-        }
-      }
-      if (editModeToggle) {
-        editModeToggle.setAttribute('aria-pressed', String(isEditMode));
-      }
       if (appMenuToggle) {
         appMenuToggle.classList.toggle('ring-2', isEditMode);
         appMenuToggle.classList.toggle('ring-emerald-400', isEditMode);
@@ -1547,19 +1500,12 @@
     if (appMenuToggle) {
       appMenuToggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        const menuIsOpen = appMenu && !appMenu.classList.contains('hidden');
-        if (menuIsOpen) {
-          closeAppMenu();
+        const sheetIsOpen = appModeSheet && appModeSheet.classList.contains('active');
+        if (sheetIsOpen) {
+          closeAppModeSheet();
         } else {
-          openAppMenu();
+          openAppModeSheet();
         }
-      });
-    }
-
-    if (editModeToggle) {
-      editModeToggle.addEventListener('click', () => {
-        closeAppMenu();
-        openAppModeSheet();
       });
     }
 
@@ -2013,7 +1959,6 @@ function openAttendanceActionSheet(context) {
       if (event.key === 'Escape') {
         hideClearConfirmation();
         hideAddEmployeeModal();
-        closeAppMenu();
         closeAppModeSheet();
       }
     });
@@ -2023,13 +1968,6 @@ function openAttendanceActionSheet(context) {
       if (clearConfirmationCard.contains(event.target)) return;
       if (event.target === clearAttendanceBtn) return;
       hideClearConfirmation();
-    });
-
-    document.addEventListener('click', (event) => {
-      if (!appMenu || !appMenuToggle) return;
-      if (appMenu.contains(event.target)) return;
-      if (appMenuToggle.contains(event.target)) return;
-      closeAppMenu();
     });
 
     updateEditModeUI();
