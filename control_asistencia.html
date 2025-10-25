@@ -445,6 +445,15 @@
 
       <!-- Employee List -->
       <div id="employee-list" class="space-y-2 sm:space-y-3"></div>
+      <div id="show-more-container" class="mt-6 flex justify-center hidden">
+        <button
+          id="show-more-btn"
+          type="button"
+          class="px-4 py-2 rounded-full bg-white shadow text-sm font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border border-emerald-100"
+        >
+          Mostrar más
+        </button>
+      </div>
 
     <!-- Floating Action Buttons -->
     <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
@@ -557,6 +566,8 @@
     const statsMobileMount = document.getElementById('stats-mobile-mount');
     const totalCountElements = document.querySelectorAll('[data-total-count]');
     const presentCountElements = document.querySelectorAll('[data-present-count]');
+    const showMoreContainer = document.getElementById('show-more-container');
+    const showMoreBtn = document.getElementById('show-more-btn');
     const addEmployeeBtn = document.getElementById('add-employee-btn');
     const addEmployeeModal = document.getElementById('add-employee-modal');
     const addEmployeeForm = document.getElementById('add-employee-form');
@@ -590,7 +601,9 @@
     let clearToastTimeout = null;
     let showPresentOnly = false;
     let pendingCheckAction = null;
-    let filterRaf = null;
+    const INITIAL_VISIBLE_LIMIT = 10;
+    const VISIBLE_INCREMENT = 10;
+    let visibleEmployeeLimit = INITIAL_VISIBLE_LIMIT;
 
     const CHECKOUT_STORAGE_KEY = 'journey-attendance-checkouts';
     let checkoutStateByDate = loadCheckoutState();
@@ -637,7 +650,42 @@
         .toLowerCase()
         .trim();
     }
-    
+
+    function resetVisibleEmployeeLimit() {
+      visibleEmployeeLimit = INITIAL_VISIBLE_LIMIT;
+    }
+
+    function increaseVisibleEmployeeLimit() {
+      visibleEmployeeLimit += VISIBLE_INCREMENT;
+    }
+
+    function getActiveSearchTerm() {
+      return normalizeForSearch(searchInput ? searchInput.value : '');
+    }
+
+    function shouldLimitResults(searchTerm) {
+      return !searchTerm && !showPresentOnly;
+    }
+
+    function getFilteredEmployees() {
+      const searchTerm = getActiveSearchTerm();
+      return employees.filter((employee) => {
+        if (!employee) return false;
+        attachComputedFields(employee);
+        const matchesName = !searchTerm || (employee.normalizedName || '').includes(searchTerm);
+        const matchesPresent = !showPresentOnly || Boolean(employee.checkedIn);
+        return matchesName && matchesPresent;
+      });
+    }
+
+    function updateShowMoreVisibility(filteredCount, renderedCount, limitApplied) {
+      if (!showMoreContainer || !showMoreBtn) return;
+      const canShowMore = limitApplied && renderedCount < filteredCount;
+      showMoreContainer.classList.toggle('hidden', !canShowMore);
+      showMoreContainer.setAttribute('aria-hidden', String(!canShowMore));
+      showMoreBtn.disabled = !canShowMore;
+    }
+
     function attachComputedFields(employee) {
       if (!employee) return employee;
       employee.normalizedName = normalizeForSearch(employee.name || '');
@@ -944,6 +992,7 @@
         }
 
         recalculateReadOnlyState();
+        resetVisibleEmployeeLimit();
         refreshUI();
       } catch (error) {
         console.error('Error al eliminar empleado:', error);
@@ -1042,7 +1091,6 @@
       updateTotalCount();
       updatePresentCount();
       updatePresentFilterButtonState();
-      applyFilters();
       updateReadOnlyBanner();
       updateClearButtonState();
     }
@@ -1091,6 +1139,7 @@
         );
       } finally {
         recalculateReadOnlyState();
+        resetVisibleEmployeeLimit();
         refreshUI();
       }
     }
@@ -1111,6 +1160,7 @@
           employees = mapServerEmployeesWithCheckout(payload.employees);
           attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
           recalculateReadOnlyState();
+          resetVisibleEmployeeLimit();
           refreshUI();
         }
         if (
@@ -1274,9 +1324,17 @@
 
     function renderEmployees() {
       if (!employeeList) return;
-      const fragment = document.createDocumentFragment();
 
-      employees.forEach(emp => {
+      const fragment = document.createDocumentFragment();
+      const filteredEmployees = getFilteredEmployees();
+      const searchTerm = getActiveSearchTerm();
+      const limitApplied = shouldLimitResults(searchTerm);
+      const effectiveLimit = limitApplied ? Math.max(visibleEmployeeLimit, 0) : filteredEmployees.length;
+      const employeesToRender = filteredEmployees.slice(0, effectiveLimit);
+      const hasEmployees = employees.length > 0;
+      const hasFilteredEmployees = filteredEmployees.length > 0;
+
+      employeesToRender.forEach(emp => {
         const card = document.createElement('div');
         const infoWrapper = document.createElement('div');
         const nameEl = document.createElement('div');
@@ -1419,14 +1477,21 @@
         fragment.appendChild(card);
       });
 
-      if (!employees.length) {
+      if (!hasEmployees) {
         const emptyState = document.createElement('div');
         emptyState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
         emptyState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No hay empleados cargados.</p><p class="text-sm">Usa el botón “Importar desde Excel” para cargar tu plantilla.</p>';
         fragment.appendChild(emptyState);
+        } else if (!hasFilteredEmployees) {
+        const emptySearchState = document.createElement('div');
+        emptySearchState.className = 'bg-white rounded-lg shadow p-6 text-center text-gray-500';
+        emptySearchState.innerHTML = '<p class="font-medium text-gray-700 mb-2">No se encontraron coincidencias.</p><p class="text-sm">Ajusta tu búsqueda o filtros para ver resultados.</p>';
+        fragment.appendChild(emptySearchState);
       }
 
       employeeList.replaceChildren(fragment);
+      updateShowMoreVisibility(filteredEmployees.length, employeesToRender.length, limitApplied);
+      updateSearchClearButton();
     }
 
     function updateSearchClearButton() {
@@ -1436,34 +1501,8 @@
       searchClearButton.setAttribute('aria-hidden', String(!hasValue));
     }
 
-    function applyFiltersNow() {
-      if (!employeeList) return;
-      const rawSearchValue = searchInput ? searchInput.value : '';
-      const searchTerm = normalizeForSearch(rawSearchValue);
-      const cards = employeeList.querySelectorAll('.employee-card');
-      cards.forEach(card => {
-        const matchesName = !searchTerm || card.dataset.name.includes(searchTerm);
-        const matchesPresent = !showPresentOnly || card.dataset.present === 'true';
-        const shouldShow = matchesName && matchesPresent;
-        if (shouldShow) {
-          card.style.display = '';
-          card.hidden = false;
-        } else {
-          card.style.display = 'none';
-          card.hidden = true;
-        }
-      });
-      updateSearchClearButton();
-    }
-
-     function applyFilters() {
-      if (filterRaf !== null) {
-        cancelAnimationFrame(filterRaf);
-      }
-      filterRaf = requestAnimationFrame(() => {
-        filterRaf = null;
-        applyFiltersNow();
-      });
+    function applyFilters() {
+      renderEmployees();
     }
 
     function updatePresentFilterButtonState() {
@@ -1477,6 +1516,9 @@
 
     if (searchInput) {
       searchInput.addEventListener('input', () => {
+        if (!searchInput.value.trim()) {
+          resetVisibleEmployeeLimit();
+        }
         applyFilters();
       });
     }
@@ -1484,6 +1526,7 @@
     if (searchClearButton && searchInput) {
       searchClearButton.addEventListener('click', () => {
         searchInput.value = '';
+        resetVisibleEmployeeLimit();
         applyFilters();
         searchInput.focus();
       });
@@ -1493,7 +1536,17 @@
       presentFilterBtn.addEventListener('click', () => {
         showPresentOnly = !showPresentOnly;
         updatePresentFilterButtonState();
+          if (!showPresentOnly && !getActiveSearchTerm()) {
+          resetVisibleEmployeeLimit();
+        }
         applyFilters();
+      });
+    }
+
+    if (showMoreBtn) {
+      showMoreBtn.addEventListener('click', () => {
+        increaseVisibleEmployeeLimit();
+        renderEmployees();
       });
     }
 
