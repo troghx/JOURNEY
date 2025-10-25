@@ -160,8 +160,8 @@
     .radial-menu::after {
       content: '';
       position: absolute;
-      width: 11rem;
-      height: 11rem;
+      width: 9rem;
+      height: 9rem;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -465,8 +465,8 @@
 
     let isMenuOpen = false;
     let frameHandle = null;
-    const IDLE_RADIUS = 56;
-    const ACTIVE_RADIUS = 120;
+    const IDLE_RADIUS = 40;
+    const ACTIVE_RADIUS = 88;
     const IDLE_SCALE = 0.55;
     const ACTIVE_SCALE = 1;
     const IDLE_OPACITY = 0.72;
@@ -589,7 +589,8 @@
     });
 
     menuItems.forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (event) => {
+        event.stopPropagation();
         const action = item.dataset.action;
         closeRadialMenu();
 
