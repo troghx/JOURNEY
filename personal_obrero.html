@@ -599,6 +599,11 @@
           return;
         }
     
+        if (action === 'registrar-personal') {
+          window.location.href = 'registro_obrero.html';
+          return;
+        }
+
         if (!action) return;
 
         const label = item.querySelector('.menu-label')?.textContent ?? action;
