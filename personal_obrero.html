@@ -24,7 +24,8 @@
       background-color: #03040c;
       color: #f9fafb;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     body::before {
@@ -200,13 +201,14 @@
       -webkit-backdrop-filter: blur(22px) saturate(140%);
       overflow: hidden;
       z-index: 48;
-      transition: left 0.28s ease, top 0.28s ease,
+      transition:
         width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
         height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
         border-radius 0.28s ease, box-shadow 0.28s ease,
         background 0.28s ease, border-color 0.28s ease;
       touch-action: none;
       transform-origin: center;
+      will-change: left, top, width, height;
     }
 
     .radial-assistive-button::before {
@@ -261,6 +263,10 @@
       box-shadow: 0 28px 60px rgba(6, 16, 40, 0.62);
     }
 
+    .radial-assistive-button.is-dragging {
+      transition: none;
+    }
+
     .radial-assistive-button.is-active::before {
       opacity: 0.85;
     }
@@ -285,14 +291,84 @@
       .radial-assistive-button {
         display: flex;
       }
+    }
+      
+    body.coarse-pointer .radial-menu {
+      width: min(88vw, 18rem);
+      height: auto;
+      transform: translate(-50%, calc(-100% - 1.1rem));
+      padding: 1rem;
+      border-radius: 1.25rem;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 45px rgba(3, 7, 18, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
 
-      .radial-menu {
-        display: none;
-      }
+    body.coarse-pointer .radial-menu::after {
+      display: none;
+    }
 
-      .radial-menu.active {
-        display: block;
-      }
+    body.coarse-pointer .radial-menu.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.coarse-pointer .radial-menu .menu-item {
+      position: relative;
+      width: 100%;
+      height: auto;
+      transform: none !important;
+      opacity: 1 !important;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.75rem;
+      pointer-events: auto;
+      text-align: left;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    }
+
+    body.coarse-pointer .radial-menu .menu-item:hover,
+    body.coarse-pointer .radial-menu .menu-item:focus-visible {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #ecfdf5;
+      outline: none;
+    }
+
+    body.coarse-pointer .radial-menu .menu-item svg {
+      width: 1.2rem;
+      height: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    body.coarse-pointer .radial-menu .menu-label {
+      position: static;
+      top: auto;
+      left: auto;
+      transform: none;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      opacity: 0.92;
+      pointer-events: none;
+      white-space: normal;
+      line-height: 1.35;
+      flex: 1;
+    }
+
+    body.coarse-pointer .radial-menu .menu-item .menu-label {
+      margin: 0;
     }
 
     .search-panel {
@@ -917,7 +993,7 @@
     }
   </style>
 </head>
-<body class="relative flex flex-col items-center justify-start px-6 py-12 sm:py-16">
+<body class="relative flex flex-col items-center justify-start px-4 sm:px-6 py-12 sm:py-16">
   <a
     href="seleccionar_personal.html"
     class="absolute left-6 top-6 inline-flex items-center text-sm font-medium text-white/70 transition hover:text-white"
@@ -928,7 +1004,7 @@
     Volver
   </a>
 
-  <header class="glass-panel mt-24 w-full max-w-3xl rounded-3xl px-8 py-10 text-center">
+  <header class="glass-panel mt-20 sm:mt-24 w-full max-w-3xl rounded-3xl px-6 py-8 sm:px-8 sm:py-10 text-center">
     <p class="text-sm font-medium uppercase tracking-[0.3em] text-white/60">Personal Obrero</p>
     <h1 class="mt-4 text-3xl font-semibold text-white">
       Bienvenido <span id="welcome-name" class="text-emerald-200"></span>
@@ -936,8 +1012,8 @@
     <p class="mt-2 text-lg text-white/80">¿Qué haremos hoy?</p>
   </header>
 
-  <section class="mt-14 w-full max-w-4xl">
-    <div class="glass-panel rounded-3xl px-8 py-10 text-center">
+  <section class="mt-10 sm:mt-14 w-full max-w-4xl">
+    <div class="glass-panel rounded-3xl px-6 py-8 sm:px-8 sm:py-10 text-center">
       <p class="text-base text-white/70">
         Explora las acciones disponibles con el menú radial. Haz clic derecho en cualquier parte de la pantalla para descubrir herramientas rápidas
         como búsqueda de personal, alta de colaboradores o la consulta de reportes generados.
@@ -1599,6 +1675,14 @@
     const isSearchPanelOpen = () => searchPanel?.classList.contains('active');
 
     const applyMenuLayout = (radius, scale, opacity) => {
+      if (isCoarsePointer()) {
+        menuItems.forEach((item) => {
+          item.style.transform = '';
+          item.style.opacity = '';
+        });
+        return;
+      }
+
       const angleStep = (Math.PI * 2) / menuItems.length;
       menuItems.forEach((item, index) => {
         const angle = angleStep * index - Math.PI / 2;
@@ -1634,10 +1718,15 @@
       radialMenu.classList.toggle('active', isMenuOpen);
       radialMenu.setAttribute('aria-hidden', isMenuOpen ? 'false' : 'true');
       syncAssistiveButtonState();
-      if (!isMenuOpen) {
-        updateAssistiveButtonPosition(assistiveButtonRestPosition.x, assistiveButtonRestPosition.y);
-        pointer.x = assistiveButtonRestPosition.x;
-        pointer.y = assistiveButtonRestPosition.y;
+      if (isMenuOpen) {
+        if (isCoarsePointer()) {
+          updatePointerFromAssistiveButton();
+        }
+      } else {
+        if (!isCoarsePointer()) {
+          updateAssistiveButtonPosition(assistiveButtonRestPosition.x, assistiveButtonRestPosition.y);
+        }
+        updatePointerFromAssistiveButton();
       }
       scheduleRender();
     };
@@ -1702,7 +1791,7 @@
         closeRadialMenu();
       }
       syncAssistiveButtonState(coarse);
-        if (coarse) {
+      if (coarse) {
         updatePointerFromAssistiveButton();
       }
     };
@@ -1751,26 +1840,17 @@
       event.stopPropagation();
       if (!isCoarsePointer()) return;
 
+      const rect = assistiveButton.getBoundingClientRect();
+      pointer.x = rect.left + rect.width / 2;
+      pointer.y = rect.top + rect.height / 2;
+      assistiveButtonRestPosition.x = assistiveButtonPosition.x;
+      assistiveButtonRestPosition.y = assistiveButtonPosition.y;
+
       if (isMenuOpen) {
         closeRadialMenu();
         return;
       }
 
-      const rect = assistiveButton.getBoundingClientRect();
-      const minX = ACTIVE_RADIUS + 20;
-      const maxX = Math.max(minX, window.innerWidth - ACTIVE_RADIUS - 20);
-      const minY = ACTIVE_RADIUS + 20;
-      const maxY = Math.max(minY, window.innerHeight - ACTIVE_RADIUS - 20);
-      const targetX = rect.left + rect.width / 2;
-      const targetY = rect.top + rect.height / 2;
-
-      pointer.x = clamp(targetX, minX, maxX);
-      pointer.y = clamp(targetY, minY, maxY);
-      assistiveButtonRestPosition.x = assistiveButtonPosition.x;
-      assistiveButtonRestPosition.y = assistiveButtonPosition.y;
-      updateAssistiveButtonPosition(pointer.x, pointer.y, { updateRest: false });
-      pointer.x = assistiveButtonPosition.x;
-      pointer.y = assistiveButtonPosition.y;
       setMenuState(true);
     });
 
@@ -1785,6 +1865,7 @@
       event.preventDefault();
       isDraggingAssistiveButton = true;
       didDragAssistiveButton = false;
+      assistiveButton.classList.add('is-dragging');
       assistiveButton.setPointerCapture(event.pointerId);
       const rect = assistiveButton.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
@@ -1815,6 +1896,7 @@
         assistiveButton.releasePointerCapture(event.pointerId);
       }
       isDraggingAssistiveButton = false;
+      assistiveButton.classList.remove('is-dragging');
       if (didDragAssistiveButton) {
         skipNextAssistiveClick = true;
         updatePointerFromAssistiveButton();
