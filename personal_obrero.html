@@ -180,17 +180,19 @@
     }
 
     .radial-assistive-button {
+      --assistive-size: 3.5rem;
+      --assistive-border-opacity: 0.16;
       position: fixed;
       right: clamp(1.25rem, 6vw, 2.75rem);
       bottom: clamp(1.25rem, 6vw, 2.75rem);
-      width: 3.5rem;
-      height: 3.5rem;
+      width: var(--assistive-size);
+      height: var(--assistive-size);
       border-radius: 9999px;
       display: none;
       align-items: center;
       justify-content: center;
       gap: 0.1rem;
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, var(--assistive-border-opacity));
       background: rgba(15, 23, 42, 0.65);
       color: #f9fafb;
       box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
@@ -198,9 +200,13 @@
       -webkit-backdrop-filter: blur(22px) saturate(140%);
       overflow: hidden;
       z-index: 48;
-      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease,
-        border-color 0.25s ease;
-      touch-action: manipulation;
+      transition: left 0.28s ease, top 0.28s ease,
+        width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        border-radius 0.28s ease, box-shadow 0.28s ease,
+        background 0.28s ease, border-color 0.28s ease;
+      touch-action: none;
+      transform-origin: center;
     }
 
     .radial-assistive-button::before {
@@ -238,6 +244,7 @@
     .radial-assistive-button svg {
       width: 1.35rem;
       height: 1.35rem;
+      transition: opacity 0.24s ease, transform 0.3s ease;
     }
 
     .radial-assistive-button:focus-visible {
@@ -246,10 +253,26 @@
     }
 
     .radial-assistive-button.is-active {
-      transform: scale(1.04);
-      background: rgba(16, 24, 39, 0.78);
+      --assistive-size: 11rem;
+      --assistive-border-opacity: 0.32;
+      background: rgba(16, 24, 39, 0.82);
+      border-radius: 999px;
       border-color: rgba(16, 185, 129, 0.45);
-      box-shadow: 0 22px 48px rgba(6, 16, 40, 0.55);
+      box-shadow: 0 28px 60px rgba(6, 16, 40, 0.62);
+    }
+
+    .radial-assistive-button.is-active::before {
+      opacity: 0.85;
+    }
+
+    .radial-assistive-button.is-active::after {
+      opacity: 1;
+      filter: saturate(120%);
+    }
+
+    .radial-assistive-button.is-active svg {
+      opacity: 0;
+      transform: scale(0.65);
     }
 
     @keyframes assistive-haze {
@@ -1526,7 +1549,7 @@
       workerResultsContainer.replaceChildren(fragment);
     };
 
-   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
     const pointer = {
       x: window.innerWidth / 2,
@@ -1544,12 +1567,33 @@
 
     const isCoarsePointer = () => coarsePointerQuery.matches;
 
+    const assistiveButtonPosition = {
+      x: window.innerWidth - 80,
+      y: window.innerHeight - 80,
+    };
+
+    const assistiveButtonRestPosition = {
+      x: assistiveButtonPosition.x,
+      y: assistiveButtonPosition.y,
+    };
+
+    let isDraggingAssistiveButton = false;
+    let didDragAssistiveButton = false;
+    let skipNextAssistiveClick = false;
+    const assistiveDragOffset = { x: 0, y: 0 };
+    const assistiveDragStart = { x: 0, y: 0 };
+
     const syncAssistiveButtonState = (coarse = isCoarsePointer()) => {
       if (!assistiveButton) return;
       assistiveButton.classList.toggle('is-active', coarse && isMenuOpen);
       assistiveButton.setAttribute('aria-hidden', coarse ? 'false' : 'true');
       assistiveButton.setAttribute('aria-expanded', coarse && isMenuOpen ? 'true' : 'false');
       assistiveButton.tabIndex = coarse ? 0 : -1;
+      requestAnimationFrame(() => {
+        updateAssistiveButtonPosition(assistiveButtonPosition.x, assistiveButtonPosition.y, {
+          updateRest: !isMenuOpen,
+        });
+      });
     };
 
     const isSearchPanelOpen = () => searchPanel?.classList.contains('active');
@@ -1590,12 +1634,65 @@
       radialMenu.classList.toggle('active', isMenuOpen);
       radialMenu.setAttribute('aria-hidden', isMenuOpen ? 'false' : 'true');
       syncAssistiveButtonState();
+      if (!isMenuOpen) {
+        updateAssistiveButtonPosition(assistiveButtonRestPosition.x, assistiveButtonRestPosition.y);
+        pointer.x = assistiveButtonRestPosition.x;
+        pointer.y = assistiveButtonRestPosition.y;
+      }
       scheduleRender();
     };
 
     const closeRadialMenu = () => {
       if (!isMenuOpen) return;
       setMenuState(false);
+    };
+
+    const getAssistiveBoundaries = () => {
+      if (!assistiveButton) {
+        return {
+          minX: 40,
+          maxX: window.innerWidth - 40,
+          minY: 40,
+          maxY: window.innerHeight - 40,
+        };
+      }
+
+      const halfWidth = assistiveButton.offsetWidth / 2;
+      const halfHeight = assistiveButton.offsetHeight / 2;
+      const padding = 16;
+      const minX = halfWidth + padding;
+      const maxX = Math.max(minX, window.innerWidth - halfWidth - padding);
+      const minY = halfHeight + padding;
+      const maxY = Math.max(minY, window.innerHeight - halfHeight - padding);
+
+      return {
+        minX,
+        maxX,
+        minY,
+        maxY,
+      };
+    };
+
+    const applyAssistiveButtonPosition = () => {
+      if (!assistiveButton) return;
+      const { offsetWidth, offsetHeight } = assistiveButton;
+      assistiveButton.style.left = `${assistiveButtonPosition.x - offsetWidth / 2}px`;
+      assistiveButton.style.top = `${assistiveButtonPosition.y - offsetHeight / 2}px`;
+      assistiveButton.style.right = 'auto';
+      assistiveButton.style.bottom = 'auto';
+    };
+
+    const updateAssistiveButtonPosition = (x, y, options = {}) => {
+      if (!assistiveButton) return;
+      const { updateRest = true } = options;
+      const bounds = getAssistiveBoundaries();
+      assistiveButtonPosition.x = clamp(x, bounds.minX, bounds.maxX);
+      assistiveButtonPosition.y = clamp(y, bounds.minY, bounds.maxY);
+      if (updateRest) {
+        assistiveButtonRestPosition.x = assistiveButtonPosition.x;
+        assistiveButtonRestPosition.y = assistiveButtonPosition.y;
+      }
+      applyAssistiveButtonPosition();
     };
 
     const applyPointerMode = () => {
@@ -1605,6 +1702,9 @@
         closeRadialMenu();
       }
       syncAssistiveButtonState(coarse);
+        if (coarse) {
+        updatePointerFromAssistiveButton();
+      }
     };
 
     const openSearchPanel = () => {
@@ -1640,6 +1740,13 @@
     }
 
     assistiveButton?.addEventListener('click', (event) => {
+      if (skipNextAssistiveClick) {
+        skipNextAssistiveClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       event.preventDefault();
       event.stopPropagation();
       if (!isCoarsePointer()) return;
@@ -1653,14 +1760,72 @@
       const minX = ACTIVE_RADIUS + 20;
       const maxX = Math.max(minX, window.innerWidth - ACTIVE_RADIUS - 20);
       const minY = ACTIVE_RADIUS + 20;
-      const maxY = Math.max(minY, window.innerHeight - 20);
+      const maxY = Math.max(minY, window.innerHeight - ACTIVE_RADIUS - 20);
       const targetX = rect.left + rect.width / 2;
-      const targetY = rect.top - ACTIVE_RADIUS + rect.height / 2;
+      const targetY = rect.top + rect.height / 2;
 
       pointer.x = clamp(targetX, minX, maxX);
       pointer.y = clamp(targetY, minY, maxY);
+      assistiveButtonRestPosition.x = assistiveButtonPosition.x;
+      assistiveButtonRestPosition.y = assistiveButtonPosition.y;
+      updateAssistiveButtonPosition(pointer.x, pointer.y, { updateRest: false });
+      pointer.x = assistiveButtonPosition.x;
+      pointer.y = assistiveButtonPosition.y;
       setMenuState(true);
     });
+
+    const updatePointerFromAssistiveButton = () => {
+      pointer.x = assistiveButtonPosition.x;
+      pointer.y = assistiveButtonPosition.y;
+      scheduleRender();
+    };
+
+    const handleAssistiveButtonPointerDown = (event) => {
+      if (!assistiveButton) return;
+      event.preventDefault();
+      isDraggingAssistiveButton = true;
+      didDragAssistiveButton = false;
+      assistiveButton.setPointerCapture(event.pointerId);
+      const rect = assistiveButton.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      assistiveDragOffset.x = event.clientX - centerX;
+      assistiveDragOffset.y = event.clientY - centerY;
+      assistiveDragStart.x = event.clientX;
+      assistiveDragStart.y = event.clientY;
+    };
+
+    const handleAssistiveButtonPointerMove = (event) => {
+      if (!isDraggingAssistiveButton || !assistiveButton) return;
+      event.preventDefault();
+      const nextX = event.clientX - assistiveDragOffset.x;
+      const nextY = event.clientY - assistiveDragOffset.y;
+      updateAssistiveButtonPosition(nextX, nextY);
+      if (!didDragAssistiveButton) {
+        const deltaX = event.clientX - assistiveDragStart.x;
+        const deltaY = event.clientY - assistiveDragStart.y;
+        didDragAssistiveButton = Math.hypot(deltaX, deltaY) > 3;
+      }
+      updatePointerFromAssistiveButton();
+    };
+
+    const handleAssistiveButtonPointerUp = (event) => {
+      if (!isDraggingAssistiveButton || !assistiveButton) return;
+      if (assistiveButton.hasPointerCapture?.(event.pointerId)) {
+        assistiveButton.releasePointerCapture(event.pointerId);
+      }
+      isDraggingAssistiveButton = false;
+      if (didDragAssistiveButton) {
+        skipNextAssistiveClick = true;
+        updatePointerFromAssistiveButton();
+      }
+      didDragAssistiveButton = false;
+    };
+
+    assistiveButton?.addEventListener('pointerdown', handleAssistiveButtonPointerDown);
+    assistiveButton?.addEventListener('pointermove', handleAssistiveButtonPointerMove);
+    assistiveButton?.addEventListener('pointerup', handleAssistiveButtonPointerUp);
+    assistiveButton?.addEventListener('pointercancel', handleAssistiveButtonPointerUp);
 
     document.addEventListener('mousemove', (event) => {
       pointer.x = event.clientX;
@@ -1728,6 +1893,9 @@
       closeRadialMenu();
       applyPointerMode();
       scheduleRender();
+      updateAssistiveButtonPosition(assistiveButtonPosition.x, assistiveButtonPosition.y);
+      pointer.x = assistiveButtonPosition.x;
+      pointer.y = assistiveButtonPosition.y;
     });
 
     closeSearchPanelButton?.addEventListener('click', (event) => {
@@ -1814,6 +1982,17 @@
         setTimeout(() => messageBanner.remove(), 2100);
       });
     });
+
+    if (assistiveButton) {
+      const rect = assistiveButton.getBoundingClientRect();
+      assistiveButtonPosition.x = rect.left + rect.width / 2;
+      assistiveButtonPosition.y = rect.top + rect.height / 2;
+      assistiveButtonRestPosition.x = assistiveButtonPosition.x;
+      assistiveButtonRestPosition.y = assistiveButtonPosition.y;
+      applyAssistiveButtonPosition();
+      pointer.x = assistiveButtonPosition.x;
+      pointer.y = assistiveButtonPosition.y;
+    }
 
     applyPointerMode();
     scheduleRender();
