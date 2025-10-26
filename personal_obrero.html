@@ -179,6 +179,99 @@
       transform: translate(-50%, -50%) scale(1.05);
     }
 
+    .radial-assistive-button {
+      position: fixed;
+      right: clamp(1.25rem, 6vw, 2.75rem);
+      bottom: clamp(1.25rem, 6vw, 2.75rem);
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 9999px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.1rem;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(15, 23, 42, 0.65);
+      color: #f9fafb;
+      box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+      backdrop-filter: blur(22px) saturate(140%);
+      -webkit-backdrop-filter: blur(22px) saturate(140%);
+      overflow: hidden;
+      z-index: 48;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease,
+        border-color 0.25s ease;
+      touch-action: manipulation;
+    }
+
+    .radial-assistive-button::before {
+      content: '';
+      position: absolute;
+      inset: -45%;
+      border-radius: inherit;
+      background: conic-gradient(
+        from 180deg at 50% 50%,
+        rgba(16, 185, 129, 0.55),
+        rgba(59, 130, 246, 0.4),
+        rgba(244, 114, 182, 0.45),
+        rgba(251, 191, 36, 0.42),
+        rgba(16, 185, 129, 0.55)
+      );
+      filter: blur(28px);
+      opacity: 0.65;
+      transform: rotate(0deg) scale(1.15);
+      animation: assistive-haze 12s linear infinite;
+      z-index: -1;
+    }
+
+    .radial-assistive-button::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22), transparent 65%),
+        radial-gradient(circle at 70% 75%, rgba(96, 165, 250, 0.18), transparent 70%);
+      mix-blend-mode: screen;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .radial-assistive-button svg {
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+
+    .radial-assistive-button:focus-visible {
+      outline: 2px solid rgba(16, 185, 129, 0.75);
+      outline-offset: 4px;
+    }
+
+    .radial-assistive-button.is-active {
+      transform: scale(1.04);
+      background: rgba(16, 24, 39, 0.78);
+      border-color: rgba(16, 185, 129, 0.45);
+      box-shadow: 0 22px 48px rgba(6, 16, 40, 0.55);
+    }
+
+    @keyframes assistive-haze {
+      to {
+        transform: rotate(360deg) scale(1.15);
+      }
+    }
+
+    @media (pointer: coarse) {
+      .radial-assistive-button {
+        display: flex;
+      }
+
+      .radial-menu {
+        display: none;
+      }
+
+      .radial-menu.active {
+        display: block;
+      }
+    }
+
     .search-panel {
       position: fixed;
       top: 8rem;
@@ -855,6 +948,23 @@
     </button>
   </div>
 
+  <button
+    id="radial-assistive-button"
+    class="radial-assistive-button"
+    type="button"
+    aria-label="Abrir menú rápido"
+    aria-haspopup="true"
+    aria-expanded="false"
+    aria-controls="radial-menu"
+    aria-hidden="true"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="2.2" />
+      <circle cx="5.5" cy="12" r="1.6" />
+      <circle cx="18.5" cy="12" r="1.6" />
+    </svg>
+  </button>
+
   <div id="search-panel" class="search-panel" aria-hidden="true">
     <div class="search-card glass-panel" role="dialog" aria-labelledby="search-panel-title">
       <div class="search-card-header">
@@ -943,6 +1053,8 @@
 
     const radialMenu = document.getElementById('radial-menu');
     const menuItems = Array.from(radialMenu.querySelectorAll('.menu-item'));
+    const assistiveButton = document.getElementById('radial-assistive-button');
+    const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
     const searchPanel = document.getElementById('search-panel');
     const closeSearchPanelButton = document.getElementById('close-search-panel');
     const searchInput = document.getElementById('worker-search-input');
@@ -1414,6 +1526,8 @@
       workerResultsContainer.replaceChildren(fragment);
     };
 
+   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
     const pointer = {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
@@ -1427,6 +1541,16 @@
     const ACTIVE_SCALE = 1;
     const IDLE_OPACITY = 0.60;
     const ACTIVE_OPACITY = 1;
+
+    const isCoarsePointer = () => coarsePointerQuery.matches;
+
+    const syncAssistiveButtonState = (coarse = isCoarsePointer()) => {
+      if (!assistiveButton) return;
+      assistiveButton.classList.toggle('is-active', coarse && isMenuOpen);
+      assistiveButton.setAttribute('aria-hidden', coarse ? 'false' : 'true');
+      assistiveButton.setAttribute('aria-expanded', coarse && isMenuOpen ? 'true' : 'false');
+      assistiveButton.tabIndex = coarse ? 0 : -1;
+    };
 
     const isSearchPanelOpen = () => searchPanel?.classList.contains('active');
 
@@ -1465,6 +1589,7 @@
       isMenuOpen = open;
       radialMenu.classList.toggle('active', isMenuOpen);
       radialMenu.setAttribute('aria-hidden', isMenuOpen ? 'false' : 'true');
+      syncAssistiveButtonState();
       scheduleRender();
     };
 
@@ -1473,6 +1598,14 @@
       setMenuState(false);
     };
 
+    const applyPointerMode = () => {
+      const coarse = isCoarsePointer();
+      document.body.classList.toggle('coarse-pointer', coarse);
+      if (!coarse && isMenuOpen) {
+        closeRadialMenu();
+      }
+      syncAssistiveButtonState(coarse);
+    };
 
     const openSearchPanel = () => {
       if (!searchPanel) return;
@@ -1499,6 +1632,36 @@
       }
     };
 
+
+    if (coarsePointerQuery?.addEventListener) {
+      coarsePointerQuery.addEventListener('change', applyPointerMode);
+    } else if (coarsePointerQuery?.addListener) {
+      coarsePointerQuery.addListener(applyPointerMode);
+    }
+
+    assistiveButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isCoarsePointer()) return;
+
+      if (isMenuOpen) {
+        closeRadialMenu();
+        return;
+      }
+
+      const rect = assistiveButton.getBoundingClientRect();
+      const minX = ACTIVE_RADIUS + 20;
+      const maxX = Math.max(minX, window.innerWidth - ACTIVE_RADIUS - 20);
+      const minY = ACTIVE_RADIUS + 20;
+      const maxY = Math.max(minY, window.innerHeight - 20);
+      const targetX = rect.left + rect.width / 2;
+      const targetY = rect.top - ACTIVE_RADIUS + rect.height / 2;
+
+      pointer.x = clamp(targetX, minX, maxX);
+      pointer.y = clamp(targetY, minY, maxY);
+      setMenuState(true);
+    });
+
     document.addEventListener('mousemove', (event) => {
       pointer.x = event.clientX;
       pointer.y = event.clientY;
@@ -1507,7 +1670,25 @@
       }
     });
 
+      document.addEventListener(
+      'touchstart',
+      (event) => {
+        if (!isCoarsePointer()) return;
+        const [touch] = event.touches || [];
+        if (!touch) return;
+        pointer.x = touch.clientX;
+        pointer.y = touch.clientY;
+        if (!isMenuOpen) {
+          scheduleRender();
+        }
+      },
+      { passive: true }
+    );
+  
     document.addEventListener('contextmenu', (event) => {
+      if (isCoarsePointer()) {
+        return;
+      }
       event.preventDefault();
       pointer.x = event.clientX;
       pointer.y = event.clientY;
@@ -1526,7 +1707,7 @@
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-         if (isStatusModalOpen()) {
+        if (isStatusModalOpen()) {
           closeStatusChangeModal();
           return;
         }
@@ -1545,6 +1726,7 @@
 
     window.addEventListener('resize', () => {
       closeRadialMenu();
+      applyPointerMode();
       scheduleRender();
     });
 
@@ -1633,6 +1815,7 @@
       });
     });
 
+    applyPointerMode();
     scheduleRender();
   </script>
 </body>
