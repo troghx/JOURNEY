@@ -316,32 +316,36 @@
 
     .worker-result-card {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 1.5rem;
-      padding: 1.6rem;
-      border-radius: 1.75rem;
-      background: rgba(15, 23, 42, 0.82);
+      gap: 1.25rem;
+      padding: 1.8rem;
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 24px 48px rgba(15, 23, 42, 0.42);
       position: relative;
       overflow: hidden;
+      text-align: center;
     }
 
     .worker-result-card[data-status='active'] {
-      border-color: rgba(16, 185, 129, 0.32);
-      box-shadow: 0 24px 50px rgba(16, 185, 129, 0.18);
+      box-shadow: 0 24px 54px rgba(16, 185, 129, 0.18);
     }
 
     .worker-result-card[data-status='inactive'] {
-      border-color: rgba(248, 113, 113, 0.38);
-      box-shadow: 0 24px 50px rgba(248, 113, 113, 0.2);
+      box-shadow: 0 24px 54px rgba(248, 113, 113, 0.18);
+    }
+
+    .worker-result-card[data-status='suspended'] {
+      box-shadow: 0 24px 54px rgba(251, 191, 36, 0.22);
     }
 
     .worker-avatar {
       position: relative;
-      display: inline-flex;
-      padding: 0.45rem;
-      border-radius: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem;
+      border-radius: 2rem;
     }
 
     .worker-avatar::before {
@@ -368,15 +372,30 @@
       background: radial-gradient(circle, rgba(59, 130, 246, 0.75), rgba(59, 130, 246, 0.08));
     }
 
+    .worker-avatar[data-status='suspended']::before {
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.85), rgba(251, 191, 36, 0.12));
+    }
+
     .worker-result-card:hover .worker-avatar::before {
       opacity: 0.95;
       transform: scale(1);
     }
 
-    .worker-photo-placeholder {
+    .worker-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .worker-photo-wrapper {
       position: relative;
-      width: 5.5rem;
-      height: 5.5rem;
+    }
+
+    .worker-photo {
+      position: relative;
+      width: 6rem;
+      height: 6rem;
       border-radius: 1.5rem;
       background: linear-gradient(135deg, rgba(15, 118, 110, 0.32), rgba(14, 116, 144, 0.18));
       display: flex;
@@ -384,16 +403,97 @@
       justify-content: center;
       color: rgba(4, 47, 46, 0.78);
       font-weight: 600;
+      font-size: 1.5rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      overflow: hidden;
       z-index: 1;
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+
+    .worker-photo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      opacity: 0.45;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+
+    .worker-photo.has-image::after {
+      opacity: 0.7;
+    }
+
+    .worker-photo-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .worker-photo-initials {
+      z-index: 1;
+      transition: opacity 200ms ease;
+    }
+
+    .worker-photo.has-image .worker-photo-initials {
+      opacity: 0;
+    }
+
+    .worker-photo-upload-button {
+      position: absolute;
+      bottom: -0.65rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.92);
+      border: 2px solid rgba(148, 163, 184, 0.5);
+      color: #f9fafb;
+      cursor: pointer;
+      transition: background 200ms ease, color 200ms ease, border-color 200ms ease, transform 200ms ease;
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.38);
+      z-index: 2;
+    }
+
+    .worker-photo-upload-button:hover {
+      background: rgba(16, 185, 129, 0.9);
+      border-color: rgba(110, 231, 183, 0.6);
+      color: rgba(2, 44, 34, 0.92);
+      transform: translateX(-50%) translateY(-1px);
+    }
+
+    .worker-photo-upload-button svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .worker-photo-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .worker-info {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.65rem;
+      align-items: center;
+      gap: 0.75rem;
       min-width: 0;
     }
 
@@ -402,19 +502,35 @@
       font-size: 1.05rem;
       font-weight: 600;
       color: #f9fafb;
-      text-align: left;
+      text-align: center;
     }
 
     .worker-status-pill {
-      align-self: flex-start;
-      padding: 0.3rem 0.8rem;
+      border: none;
+      padding: 0.45rem 1.1rem;
       border-radius: 9999px;
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       font-weight: 600;
       color: rgba(15, 23, 42, 0.92);
       background: rgba(255, 255, 255, 0.85);
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .worker-status-pill:focus-visible {
+      outline: 2px solid rgba(110, 231, 183, 0.7);
+      outline-offset: 2px;
+    }
+
+    .worker-status-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.32);
     }
 
     .worker-status-pill[data-status='active'] {
@@ -432,6 +548,11 @@
       color: rgba(17, 24, 39, 0.92);
     }
 
+    .worker-status-pill[data-status='suspended'] {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.92), rgba(254, 240, 138, 0.9));
+      color: rgba(63, 35, 0, 0.92);
+    }
+
     .worker-meta {
       margin: 0;
       padding: 0;
@@ -440,6 +561,8 @@
       gap: 0.35rem;
       font-size: 0.85rem;
       color: rgba(226, 232, 240, 0.82);
+      text-align: left;
+      width: 100%;
     }
 
     .worker-meta-item {
@@ -452,6 +575,203 @@
     .worker-meta-label {
       font-weight: 600;
       color: rgba(255, 255, 255, 0.92);
+    }
+
+    .worker-status-note {
+      font-size: 0.75rem;
+      color: rgba(253, 230, 138, 0.9);
+      background: rgba(250, 204, 21, 0.12);
+      padding: 0.4rem 0.9rem;
+      border-radius: 9999px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    .status-change-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 60;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 200ms ease, visibility 200ms ease;
+    }
+
+    .status-change-modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .status-change-card {
+      width: min(100%, 26rem);
+      border-radius: 1.5rem;
+    }
+
+    .status-modal-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: #f9fafb;
+    }
+
+    .status-modal-description {
+      font-size: 0.85rem;
+      color: rgba(226, 232, 240, 0.75);
+      margin-bottom: 1.25rem;
+    }
+
+    .status-option-group {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .status-option-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.5);
+      color: rgba(226, 232, 240, 0.9);
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 200ms ease, background 200ms ease, transform 200ms ease, color 200ms ease;
+    }
+
+    .status-option-button:hover {
+      border-color: rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.62);
+    }
+
+    .status-option-button[aria-pressed='true'] {
+      transform: translateY(-1px);
+      border-color: rgba(110, 231, 183, 0.6);
+      background: rgba(16, 185, 129, 0.18);
+      color: rgba(237, 255, 250, 0.95);
+    }
+
+    .status-option-button[data-status-option='inactive'][aria-pressed='true'] {
+      border-color: rgba(248, 113, 113, 0.6);
+      background: rgba(248, 113, 113, 0.18);
+      color: rgba(255, 241, 242, 0.95);
+    }
+
+    .status-option-button[data-status-option='suspended'][aria-pressed='true'] {
+      border-color: rgba(251, 191, 36, 0.65);
+      background: rgba(251, 191, 36, 0.2);
+      color: rgba(60, 33, 0, 0.95);
+    }
+
+    .status-option-label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+
+    .status-option-caption {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      opacity: 0.72;
+    }
+
+    .status-option-button[data-status-option='active'] .status-option-caption {
+      color: rgba(110, 231, 183, 0.85);
+    }
+
+    .status-option-button[data-status-option='suspended'] .status-option-caption {
+      color: rgba(253, 230, 138, 0.85);
+    }
+
+    .status-option-button[data-status-option='inactive'] .status-option-caption {
+      color: rgba(254, 202, 202, 0.85);
+    }
+
+    .status-reason-field {
+      display: grid;
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+    }
+
+    .status-reason-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(226, 232, 240, 0.75);
+      font-weight: 600;
+    }
+
+    .status-reason-textarea {
+      resize: vertical;
+      min-height: 4rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.45);
+      color: #f9fafb;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    .status-reason-textarea:focus {
+      outline: none;
+      border-color: rgba(110, 231, 183, 0.6);
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
+    }
+
+    .status-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .status-modal-actions button {
+      border-radius: 9999px;
+      padding: 0.55rem 1.35rem;
+      font-weight: 600;
+      font-size: 0.85rem;
+      border: none;
+      cursor: pointer;
+      transition: background 200ms ease, color 200ms ease, opacity 200ms ease;
+    }
+
+    .status-cancel-button {
+      background: rgba(148, 163, 184, 0.15);
+      color: rgba(226, 232, 240, 0.9);
+    }
+
+    .status-cancel-button:hover {
+      background: rgba(148, 163, 184, 0.25);
+    }
+
+    .status-confirm-button {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(110, 231, 183, 0.85));
+      color: rgba(2, 44, 34, 0.92);
+      box-shadow: 0 16px 30px rgba(16, 185, 129, 0.25);
+    }
+
+    .status-confirm-button:hover:not(:disabled) {
+      box-shadow: 0 20px 36px rgba(16, 185, 129, 0.32);
+    }
+
+    .status-confirm-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
     }
 
     @media (max-width: 640px) {
@@ -534,7 +854,7 @@
     </button>
   </div>
 
-    <div id="search-panel" class="search-panel" aria-hidden="true">
+  <div id="search-panel" class="search-panel" aria-hidden="true">
     <div class="search-card glass-panel" role="dialog" aria-labelledby="search-panel-title">
       <div class="search-card-header">
         <h2 id="search-panel-title">Buscar trabajador</h2>
@@ -566,6 +886,53 @@
     </div>
   </div>
 
+  <div
+    id="status-change-modal"
+    class="status-change-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+  >
+    <div class="status-change-card glass-panel p-6">
+      <h2 id="status-modal-title" class="status-modal-title">Actualizar estatus</h2>
+      <p id="status-modal-description" class="status-modal-description">
+        Selecciona el nuevo estatus para el trabajador.
+      </p>
+      <div class="status-option-group" role="group" aria-labelledby="status-modal-title">
+        <button type="button" class="status-option-button" data-status-option="active" aria-pressed="false">
+          <span class="status-option-label">
+            <span>Activo</span>
+            <span class="status-option-caption">Disponible</span>
+          </span>
+        </button>
+        <button type="button" class="status-option-button" data-status-option="suspended" aria-pressed="false">
+          <span class="status-option-label">
+            <span>Suspensión</span>
+            <span class="status-option-caption">Temporal</span>
+          </span>
+        </button>
+        <button type="button" class="status-option-button" data-status-option="inactive" aria-pressed="false">
+          <span class="status-option-label">
+            <span>Baja</span>
+            <span class="status-option-caption">Definitiva</span>
+          </span>
+        </button>
+      </div>
+      <div id="status-reason-field" class="status-reason-field" hidden>
+        <span class="status-reason-label">Motivo de suspensión</span>
+        <textarea
+          id="status-reason-input"
+          class="status-reason-textarea"
+          placeholder="Describe brevemente el motivo"
+        ></textarea>
+      </div>
+      <div class="status-modal-actions">
+        <button type="button" class="status-cancel-button" data-status-cancel>Cancelar</button>
+        <button type="button" class="status-confirm-button" data-status-confirm disabled>Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const username = localStorage.getItem('jscUserName') || 'Equipo JSC';
     const nameTarget = document.getElementById('welcome-name');
@@ -579,6 +946,16 @@
     const closeSearchPanelButton = document.getElementById('close-search-panel');
     const searchInput = document.getElementById('worker-search-input');
     const workerResultsContainer = document.getElementById('worker-search-results');
+
+    const statusChangeModal = document.getElementById('status-change-modal');
+    const statusModalDescription = document.getElementById('status-modal-description');
+    const statusOptionButtons = statusChangeModal
+      ? Array.from(statusChangeModal.querySelectorAll('[data-status-option]'))
+      : [];
+    const statusReasonField = document.getElementById('status-reason-field');
+    const statusReasonInput = document.getElementById('status-reason-input');
+    const statusConfirmButton = statusChangeModal?.querySelector('[data-status-confirm]') ?? null;
+    const statusCancelButton = statusChangeModal?.querySelector('[data-status-cancel]') ?? null;
 
     const normalizeValue = (value) =>
       value
@@ -597,6 +974,23 @@
       data: [],
       promise: null,
       error: null,
+    };
+
+    const STATUS_LABELS = {
+      active: 'Activo',
+      inactive: 'Baja',
+      suspended: 'Suspensión',
+      unknown: 'Sin información',
+    };
+
+    const statusModalState = {
+      card: null,
+      avatar: null,
+      statusButton: null,
+      statusNote: null,
+      workerName: '',
+      selectedStatus: null,
+      reason: '',
     };
 
     const showHelperMessage = (text, modifier) => {
@@ -637,33 +1031,236 @@
       return item;
     };
 
+    const getStatusLabel = (statusKey, fallbackLabel = STATUS_LABELS.unknown) =>
+      statusKey && STATUS_LABELS[statusKey] ? STATUS_LABELS[statusKey] : fallbackLabel;
+
+    const updateStatusConfirmState = () => {
+      if (!statusConfirmButton) return;
+      if (!statusModalState.selectedStatus) {
+        statusConfirmButton.disabled = true;
+        return;
+      }
+
+      if (statusModalState.selectedStatus === 'suspended') {
+        const reasonText = statusReasonInput?.value.trim() ?? '';
+        statusConfirmButton.disabled = reasonText.length === 0;
+        return;
+      }
+
+      statusConfirmButton.disabled = false;
+    };
+
+    const setStatusModalSelection = (statusKey) => {
+      statusModalState.selectedStatus = statusKey || null;
+      statusOptionButtons.forEach((button) => {
+        const isSelected = statusKey && button.dataset.statusOption === statusKey;
+        button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
+
+      const requiresReason = statusModalState.selectedStatus === 'suspended';
+      if (statusReasonField) {
+        statusReasonField.hidden = !requiresReason;
+      }
+
+      if (requiresReason && statusReasonInput) {
+        statusReasonInput.value = statusModalState.reason;
+        setTimeout(() => {
+          statusReasonInput.focus({ preventScroll: true });
+        }, 80);
+      }
+
+      updateStatusConfirmState();
+    };
+
+    const closeStatusChangeModal = () => {
+      if (!statusChangeModal?.classList.contains('active')) return;
+      statusChangeModal.classList.remove('active');
+      statusChangeModal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      statusModalState.card = null;
+      statusModalState.avatar = null;
+      statusModalState.statusButton = null;
+      statusModalState.statusNote = null;
+      statusModalState.workerName = '';
+      statusModalState.selectedStatus = null;
+      statusModalState.reason = '';
+      statusOptionButtons.forEach((button) => button.setAttribute('aria-pressed', 'false'));
+      if (statusReasonInput) {
+        statusReasonInput.value = '';
+      }
+      if (statusReasonField) {
+        statusReasonField.hidden = true;
+      }
+      updateStatusConfirmState();
+    };
+
+    const openStatusChangeModal = (context) => {
+      if (!statusChangeModal) return;
+
+      statusModalState.card = context.card;
+      statusModalState.avatar = context.avatar;
+      statusModalState.statusButton = context.statusButton;
+      statusModalState.statusNote = context.statusNote;
+      statusModalState.workerName = context.workerName;
+      const selectableStatuses = ['active', 'inactive', 'suspended'];
+      const initialStatus = selectableStatuses.includes(context.currentStatus)
+        ? context.currentStatus
+        : null;
+      statusModalState.selectedStatus = initialStatus;
+      statusModalState.reason = context.card.dataset.suspensionReason || '';
+
+      if (statusModalDescription) {
+        const currentLabel = getStatusLabel(context.currentStatus, STATUS_LABELS.unknown);
+        statusModalDescription.textContent = `Selecciona el nuevo estatus para ${context.workerName}. (Actual: ${currentLabel})`;
+      }
+
+      if (statusReasonInput) {
+        statusReasonInput.value = statusModalState.reason;
+      }
+
+      statusChangeModal.classList.add('active');
+      statusChangeModal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      setStatusModalSelection(initialStatus);
+    };
+
+    const applyStatusChange = () => {
+      if (
+        !statusModalState.card ||
+        !statusModalState.avatar ||
+        !statusModalState.statusButton ||
+        !statusModalState.selectedStatus
+      ) {
+        return;
+      }
+
+      const newStatus = statusModalState.selectedStatus;
+      const reasonText =
+        newStatus === 'suspended' ? (statusReasonInput?.value.trim() ?? '') : '';
+      const label = getStatusLabel(newStatus, STATUS_LABELS.unknown);
+
+      statusModalState.card.dataset.status = newStatus;
+      statusModalState.avatar.dataset.status = newStatus;
+      statusModalState.statusButton.dataset.status = newStatus;
+      statusModalState.statusButton.textContent = label;
+      statusModalState.statusButton.setAttribute(
+        'aria-label',
+        `Cambiar estatus de ${statusModalState.workerName} (actual: ${label})`
+      );
+
+      if (newStatus === 'suspended') {
+        statusModalState.card.dataset.suspensionReason = reasonText;
+        if (statusModalState.statusNote) {
+          statusModalState.statusNote.textContent = reasonText
+            ? `Motivo: ${reasonText}`
+            : 'Motivo no especificado';
+          statusModalState.statusNote.hidden = false;
+        }
+      } else {
+        delete statusModalState.card.dataset.suspensionReason;
+        if (statusModalState.statusNote) {
+          statusModalState.statusNote.textContent = '';
+          statusModalState.statusNote.hidden = true;
+        }
+      }
+
+      closeStatusChangeModal();
+    };
+
+    const isStatusModalOpen = () => statusChangeModal?.classList.contains('active');
+
     const createWorkerCard = (worker) => {
-      const statusValue = normalizeValue(worker['Sigue en obra']);
+      const rawStatus = worker['Sigue en obra'];
+      const statusValue = normalizeValue(rawStatus);
       let statusKey = 'unknown';
-      let statusLabel = 'Sin información';
 
       if (statusValue === 'si') {
         statusKey = 'active';
-        statusLabel = 'Activo';
       } else if (statusValue === 'no') {
         statusKey = 'inactive';
-        statusLabel = 'Baja';
-      } else if (worker['Sigue en obra']) {
-        statusLabel = cleanDisplayValue(worker['Sigue en obra']);
+      } else if (statusValue.startsWith('susp')) {
+        statusKey = 'suspended';
+      }
+
+      let statusLabel = getStatusLabel(statusKey);
+      if (statusKey === 'unknown' && rawStatus) {
+        statusLabel = cleanDisplayValue(rawStatus);
       }
 
       const card = document.createElement('article');
       card.className = 'worker-result-card';
       card.dataset.status = statusKey;
 
+      const visual = document.createElement('div');
+      visual.className = 'worker-visual';
+
       const avatar = document.createElement('div');
       avatar.className = 'worker-avatar';
       avatar.dataset.status = statusKey;
 
-      const photoPlaceholder = document.createElement('div');
-      photoPlaceholder.className = 'worker-photo-placeholder';
-      photoPlaceholder.textContent = getWorkerInitials(worker.Nombre);
-      avatar.appendChild(photoPlaceholder);
+      const photoWrapper = document.createElement('div');
+      photoWrapper.className = 'worker-photo-wrapper';
+
+      const photoContainer = document.createElement('div');
+      photoContainer.className = 'worker-photo';
+
+      const photoImage = document.createElement('img');
+      photoImage.className = 'worker-photo-image';
+      photoImage.alt = `Foto de ${worker.Nombre || 'trabajador'}`;
+      photoImage.hidden = true;
+
+      const photoInitials = document.createElement('span');
+      photoInitials.className = 'worker-photo-initials';
+      photoInitials.textContent = getWorkerInitials(worker.Nombre);
+
+      photoContainer.append(photoImage, photoInitials);
+
+      const uploadButton = document.createElement('button');
+      uploadButton.type = 'button';
+      uploadButton.className = 'worker-photo-upload-button';
+      uploadButton.setAttribute('aria-label', 'Actualizar foto del trabajador');
+      uploadButton.title = 'Cambiar foto';
+      uploadButton.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>';
+
+      const photoInput = document.createElement('input');
+      photoInput.type = 'file';
+      photoInput.accept = 'image/*';
+      photoInput.className = 'worker-photo-input';
+
+      uploadButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        photoInput.click();
+      });
+
+      photoInput.addEventListener('change', (event) => {
+        const [file] = event.target.files ?? [];
+        if (!file) return;
+        if (file.type && !file.type.startsWith('image/')) {
+          console.warn('El archivo seleccionado no es una imagen.');
+          event.target.value = '';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+          const result = reader.result;
+          if (typeof result === 'string') {
+            photoImage.src = result;
+            photoImage.hidden = false;
+            photoContainer.classList.add('has-image');
+          }
+        });
+        reader.addEventListener('error', (errorEvent) => {
+          console.error('No se pudo cargar la imagen seleccionada.', errorEvent);
+        });
+        reader.readAsDataURL(file);
+        event.target.value = '';
+      });
+
+      photoWrapper.append(photoContainer, uploadButton, photoInput);
+      avatar.appendChild(photoWrapper);
+      visual.appendChild(avatar);
 
       const info = document.createElement('div');
       info.className = 'worker-info';
@@ -672,11 +1269,21 @@
       nameHeading.textContent = worker.Nombre || 'Sin nombre';
       info.appendChild(nameHeading);
 
-      const statusPill = document.createElement('span');
-      statusPill.className = 'worker-status-pill';
-      statusPill.dataset.status = statusKey;
-      statusPill.textContent = statusLabel;
-      info.appendChild(statusPill);
+      const statusButton = document.createElement('button');
+      statusButton.type = 'button';
+      statusButton.className = 'worker-status-pill';
+      statusButton.dataset.status = statusKey;
+      statusButton.textContent = statusLabel;
+      statusButton.setAttribute(
+        'aria-label',
+        `Cambiar estatus de ${worker.Nombre || 'trabajador'} (actual: ${statusLabel})`
+      );
+      info.appendChild(statusButton);
+
+      const statusNote = document.createElement('p');
+      statusNote.className = 'worker-status-note';
+      statusNote.hidden = true;
+      info.appendChild(statusNote);
 
       const metaList = document.createElement('ul');
       metaList.className = 'worker-meta';
@@ -687,7 +1294,20 @@
       );
       info.appendChild(metaList);
 
-      card.append(avatar, info);
+      card.append(visual, info);
+
+      statusButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        openStatusChangeModal({
+          card,
+          avatar,
+          statusButton,
+          statusNote,
+          workerName: worker.Nombre || 'Sin nombre',
+          currentStatus: statusButton.dataset.status || 'unknown',
+        });
+      });
+
       return card;
     };
 
@@ -905,6 +1525,10 @@
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+         if (isStatusModalOpen()) {
+          closeStatusChangeModal();
+          return;
+        }
         if (isMenuOpen) {
           closeRadialMenu();
         }
@@ -913,6 +1537,7 @@
     });
 
     window.addEventListener('blur', () => {
+      closeStatusChangeModal();
       closeRadialMenu();
       closeSearchPanel();
     });
@@ -947,6 +1572,35 @@
         ensureWorkerDataset().catch(() => {});
       });
     }
+
+    statusOptionButtons.forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const { statusOption } = button.dataset;
+        setStatusModalSelection(statusOption);
+      });
+    });
+
+    statusCancelButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      closeStatusChangeModal();
+    });
+
+    statusConfirmButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      applyStatusChange();
+    });
+
+    statusReasonInput?.addEventListener('input', (event) => {
+      statusModalState.reason = event.target.value;
+      updateStatusConfirmState();
+    });
+
+    statusChangeModal?.addEventListener('click', (event) => {
+      if (event.target === statusChangeModal) {
+        closeStatusChangeModal();
+      }
+    });
 
     menuItems.forEach((item) => {
       item.addEventListener('click', (event) => {
