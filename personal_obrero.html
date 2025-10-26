@@ -15,6 +15,7 @@
   <style>
     :root {
       color-scheme: dark;
+      --assistive-expanded-size: min(88vw, 16rem);
     }
 
     body {
@@ -255,12 +256,12 @@
     }
 
     .radial-assistive-button.is-active {
-      --assistive-size: 11rem;
+      --assistive-size: var(--assistive-expanded-size);
       --assistive-border-opacity: 0.32;
-      background: rgba(16, 24, 39, 0.82);
-      border-radius: 999px;
-      border-color: rgba(16, 185, 129, 0.45);
-      box-shadow: 0 28px 60px rgba(6, 16, 40, 0.62);
+      background: linear-gradient(145deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.82));
+      border-radius: 1.85rem;
+      border-color: rgba(59, 130, 246, 0.22);
+      box-shadow: 0 32px 70px rgba(2, 6, 23, 0.72);
     }
 
     .radial-assistive-button.is-dragging {
@@ -294,20 +295,23 @@
     }
       
     body.coarse-pointer .radial-menu {
-      width: min(88vw, 18rem);
-      height: auto;
-      transform: translate(-50%, calc(-100% - 1.1rem));
-      padding: 1rem;
-      border-radius: 1.25rem;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 18px 45px rgba(3, 7, 18, 0.55);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      width: var(--assistive-expanded-size);
+      height: var(--assistive-expanded-size);
+      transform: translate(-50%, -50%) scale(0.92);
+      padding: 1.35rem;
+      border-radius: 1.95rem;
+      background: linear-gradient(155deg, rgba(17, 24, 39, 0.94), rgba(15, 23, 42, 0.88));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 28px 60px rgba(3, 7, 18, 0.62);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: 1fr;
+      justify-items: center;
+      align-items: center;
+      gap: 1rem;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.22s ease, transform 0.22s ease;
+      transition: opacity 0.26s ease, transform 0.28s ease;
     }
 
     body.coarse-pointer .radial-menu::after {
@@ -317,39 +321,56 @@
     body.coarse-pointer .radial-menu.active {
       opacity: 1;
       pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
     }
 
     body.coarse-pointer .radial-menu .menu-item {
       position: relative;
       width: 100%;
-      height: auto;
+      height: 100%;
       transform: none !important;
       opacity: 1 !important;
-      background: rgba(15, 23, 42, 0.65);
-      border-radius: 0.9rem;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.85rem 1rem;
+      background: rgba(30, 41, 59, 0.48);
+      border-radius: 1.1rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 1rem 0.75rem;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      gap: 0.75rem;
+      justify-content: center;
+      gap: 0.65rem;
       pointer-events: auto;
-      text-align: left;
-      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+      text-align: center;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.18s ease, transform 0.2s ease;
+    }
+
+    body.coarse-pointer .radial-menu .menu-item:nth-child(3) {
+      grid-column: 1 / -1;
     }
 
     body.coarse-pointer .radial-menu .menu-item:hover,
     body.coarse-pointer .radial-menu .menu-item:focus-visible {
-      background: rgba(16, 185, 129, 0.18);
-      border-color: rgba(16, 185, 129, 0.45);
-      color: #ecfdf5;
+      background: rgba(59, 130, 246, 0.22);
+      border-color: rgba(59, 130, 246, 0.55);
+      color: #f8fafc;
+      transform: translateY(-2px);
       outline: none;
     }
 
+    body.coarse-pointer .radial-menu .menu-item:hover svg,
+    body.coarse-pointer .radial-menu .menu-item:focus-visible svg {
+      background: rgba(15, 23, 42, 0.86);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 22px rgba(2, 6, 23, 0.42);
+    }
+
     body.coarse-pointer .radial-menu .menu-item svg {
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 1.4rem;
+      height: 1.4rem;
       flex-shrink: 0;
+      padding: 0.65rem;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 18px rgba(2, 6, 23, 0.36);
     }
 
     body.coarse-pointer .radial-menu .menu-label {
@@ -357,14 +378,16 @@
       top: auto;
       left: auto;
       transform: none;
-      font-size: 0.95rem;
-      letter-spacing: 0.02em;
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
       text-transform: none;
-      opacity: 0.92;
+      opacity: 0.9;
       pointer-events: none;
       white-space: normal;
-      line-height: 1.35;
-      flex: 1;
+      line-height: 1.2;
+      color: rgba(241, 245, 249, 0.92);
+      flex: 0;
     }
 
     body.coarse-pointer .radial-menu .menu-item .menu-label {
