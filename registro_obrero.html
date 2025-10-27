@@ -21,6 +21,9 @@
   <!-- SheetJS (Excel parsing) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   
+  <!-- Tesseract.js for OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -390,26 +393,77 @@
       </div>
 
       <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 hidden">
-        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4">
-          <h3 class="text-lg font-semibold mb-4">Agregar nuevo personal</h3>
-          <form id="add-employee-form" class="space-y-4">
+        <div class="glass-panel w-full max-w-md rounded-lg p-6 mx-4 space-y-4">
+          <div class="flex items-start justify-between gap-4">
             <div>
-              <label for="add-employee-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
-              <input id="add-employee-name" name="name" type="text" required placeholder="Ej. Juan Pérez" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              <h3 class="text-lg font-semibold text-gray-800">Escanear documento oficial</h3>
+              <p class="text-sm text-gray-500 mt-1">Enfoca la identificación para obtener el nombre y la CURP automáticamente.</p>
+            </div>
+            <button type="button" id="cancel-add-employee" class="text-gray-500 hover:text-gray-700 transition" aria-label="Cerrar">
+              <i data-feather="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+
+          <div id="document-capture-step" class="space-y-4">
+            <div class="relative rounded-xl overflow-hidden bg-gray-200 shadow-inner">
+              <video id="document-video" playsinline autoplay muted class="w-full aspect-video object-cover"></video>
+              <canvas id="document-canvas" class="hidden"></canvas>
+              <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div class="border-2 border-emerald-400 rounded-xl w-4/5 h-4/5 max-w-xs max-h-72"></div>
+              </div>
             </div>
             <div>
-              <label for="add-employee-position" class="block text-sm font-medium text-gray-700 mb-1">Puesto (opcional)</label>
-              <input id="add-employee-position" name="position" type="text" placeholder="Ej. Auxiliar" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              <p id="capture-status" class="text-sm text-gray-600">Permite el acceso a la cámara y coloca la identificación dentro del marco.</p>
+              <p id="capture-error" class="text-sm text-rose-500 mt-1 hidden"></p>
             </div>
-            <div>
-              <label for="add-employee-department" class="block text-sm font-medium text-gray-700 mb-1">Área o departamento (opcional)</label>
-              <input id="add-employee-department" name="department" type="text" placeholder="Ej. Operaciones" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <button type="button" id="capture-document-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-lg shadow hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                Tomar foto
+              </button>
             </div>
-            <div class="flex justify-end space-x-2 pt-2">
-              <button type="button" id="cancel-add-employee" class="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-              <button type="submit" id="submit-add-employee" class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors">Guardar</button>
+          </div>
+
+          <div id="document-review-step" class="space-y-4 hidden">
+            <div class="space-y-3">
+              <img id="document-preview" alt="Documento capturado" class="w-full rounded-xl shadow" />
+              <div id="ocr-progress" class="text-sm text-gray-500"></div>
             </div>
-          </form>
+            <form id="add-employee-form" class="space-y-4">
+              <div>
+                <label for="add-employee-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre detectado</label>
+                <input id="add-employee-name" name="name" type="text" required class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              </div>
+              <div>
+                <label for="add-employee-curp" class="block text-sm font-medium text-gray-700 mb-1">CURP detectada</label>
+                <input id="add-employee-curp" name="curp" type="text" required maxlength="18" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-400 uppercase" />
+              </div>
+              <p class="text-xs text-gray-500">Verifica los datos y corrige si es necesario antes de continuar.</p>
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <button type="button" id="retake-document-btn" class="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                  Tomar otra foto
+                </button>
+                <div class="flex items-center gap-2">
+                  <button type="button" id="cancel-review-btn" class="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                    Cancelar
+                  </button>
+                  <button type="submit" id="submit-add-employee" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    Confirmar datos
+                  </button>
+                </div>
+              </div>
+            </form>
+            <div id="assignment-question" class="hidden border-t border-gray-200 pt-4">
+              <p class="text-sm text-gray-700 font-medium">¿Deseas asignar una empresa a esta persona ahora?</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" id="assign-now-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition">
+                  Asignar ahora
+                </button>
+                <button type="button" id="assign-later-btn" class="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                  Más tarde
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -570,10 +624,23 @@
     const addEmployeeModal = document.getElementById('add-employee-modal');
     const addEmployeeForm = document.getElementById('add-employee-form');
     const addEmployeeNameInput = document.getElementById('add-employee-name');
-    const addEmployeePositionInput = document.getElementById('add-employee-position');
-    const addEmployeeDepartmentInput = document.getElementById('add-employee-department');
+    const addEmployeeCurpInput = document.getElementById('add-employee-curp');
     const cancelAddEmployeeBtn = document.getElementById('cancel-add-employee');
+    const cancelReviewBtn = document.getElementById('cancel-review-btn');
     const submitAddEmployeeBtn = document.getElementById('submit-add-employee');
+    const captureDocumentBtn = document.getElementById('capture-document-btn');
+    const retakeDocumentBtn = document.getElementById('retake-document-btn');
+    const documentVideo = document.getElementById('document-video');
+    const documentCanvas = document.getElementById('document-canvas');
+    const documentPreview = document.getElementById('document-preview');
+    const captureStatus = document.getElementById('capture-status');
+    const captureError = document.getElementById('capture-error');
+    const documentCaptureStep = document.getElementById('document-capture-step');
+    const documentReviewStep = document.getElementById('document-review-step');
+    const ocrProgress = document.getElementById('ocr-progress');
+    const assignmentQuestion = document.getElementById('assignment-question');
+    const assignNowBtn = document.getElementById('assign-now-btn');
+    const assignLaterBtn = document.getElementById('assign-later-btn');
     const clearAttendanceBtn = document.getElementById('clear-attendance-btn');
     const clearConfirmationCard = document.getElementById('clear-confirmation');
     const clearConfirmationDate = document.getElementById('clear-confirmation-date');
@@ -914,34 +981,301 @@
       }
     }
     
-        function resetAddEmployeeForm() {
+        function resetAddEmployeeForm({ focus } = {}) {
       if (addEmployeeForm) addEmployeeForm.reset();
-      if (addEmployeeNameInput) addEmployeeNameInput.focus();
+      if (addEmployeeNameInput) addEmployeeNameInput.value = '';
+      if (addEmployeeCurpInput) addEmployeeCurpInput.value = '';
+      if (focus && addEmployeeNameInput) addEmployeeNameInput.focus();
+    }
+
+    let documentStream = null;
+    let capturedDocumentDataUrl = '';
+    let documentEmployeeCreated = false;
+
+    function showDocumentCaptureStep() {
+      if (documentCaptureStep) documentCaptureStep.classList.remove('hidden');
+      if (documentReviewStep) documentReviewStep.classList.add('hidden');
+      if (assignmentQuestion) assignmentQuestion.classList.add('hidden');
+      if (ocrProgress) ocrProgress.textContent = '';
+      if (captureError) {
+        captureError.textContent = '';
+        captureError.classList.add('hidden');
+      }
+      if (captureStatus) {
+        captureStatus.textContent = 'Permite el acceso a la cámara y coloca la identificación dentro del marco.';
+      }
+      if (submitAddEmployeeBtn) {
+        submitAddEmployeeBtn.disabled = true;
+      }
+      if (captureDocumentBtn) {
+        captureDocumentBtn.disabled = true;
+      }
+      resetAddEmployeeForm();
+      documentEmployeeCreated = false;
+    }
+
+    function showDocumentReviewStep() {
+      if (documentCaptureStep) documentCaptureStep.classList.add('hidden');
+      if (documentReviewStep) documentReviewStep.classList.remove('hidden');
+      if (assignmentQuestion) assignmentQuestion.classList.add('hidden');
+      if (submitAddEmployeeBtn) submitAddEmployeeBtn.disabled = true;
+    }
+
+    async function startDocumentCamera() {
+      if (!documentVideo) return;
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        if (captureError) {
+          captureError.textContent = 'Tu dispositivo no permite acceder a la cámara desde este navegador.';
+          captureError.classList.remove('hidden');
+        }
+        if (captureStatus) {
+          captureStatus.textContent = 'Intenta abrir esta página desde un navegador compatible.';
+        }
+        if (captureDocumentBtn) captureDocumentBtn.disabled = true;
+        return;
+      }
+      try {
+        documentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        documentVideo.srcObject = documentStream;
+        await documentVideo.play();
+        if (captureStatus) {
+          captureStatus.textContent = 'Cuando la identificación sea legible, presiona “Tomar foto”.';
+        }
+        if (captureDocumentBtn) captureDocumentBtn.disabled = false;
+      } catch (error) {
+        console.error('No se pudo iniciar la cámara:', error);
+        if (captureError) {
+          captureError.textContent = 'No se pudo acceder a la cámara. Revisa los permisos e inténtalo nuevamente.';
+          captureError.classList.remove('hidden');
+        }
+        if (captureStatus) {
+          captureStatus.textContent = 'Verifica que hayas otorgado permiso a la cámara.';
+        }
+        if (captureDocumentBtn) captureDocumentBtn.disabled = true;
+      }
+    }
+
+    function stopDocumentCamera() {
+      if (documentStream) {
+        documentStream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (error) {
+            console.warn('No se pudo detener la pista de video:', error);
+          }
+        });
+      }
+      documentStream = null;
+      if (documentVideo) {
+        documentVideo.srcObject = null;
+      }
     }
 
     function showAddEmployeeModal() {
       if (!addEmployeeModal) return;
       addEmployeeModal.classList.remove('hidden');
-      resetAddEmployeeForm();
+      showDocumentCaptureStep();
+      startDocumentCamera();
     }
 
     function hideAddEmployeeModal() {
       if (!addEmployeeModal) return;
+      stopDocumentCamera();
       addEmployeeModal.classList.add('hidden');
+      capturedDocumentDataUrl = '';
+      documentEmployeeCreated = false;
+      showDocumentCaptureStep();
     }
 
-    async function createManualEmployee({ name, position, department }) {
+    function updateOcrProgress({ status, progress }) {
+      if (!ocrProgress) return;
+      if (status === 'recognizing text') {
+        const pct = Math.min(100, Math.round((progress || 0) * 100));
+        ocrProgress.textContent = `Leyendo el documento… ${pct}%`;
+      } else if (status) {
+        ocrProgress.textContent = `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+      }
+    }
+
+    function captureDocumentFrame() {
+      if (!documentVideo || !documentCanvas) return;
+      const width = documentVideo.videoWidth;
+      const height = documentVideo.videoHeight;
+      if (!width || !height) {
+        if (captureError) {
+          captureError.textContent = 'No se pudo leer la imagen del documento. Intenta nuevamente.';
+          captureError.classList.remove('hidden');
+        }
+        return;
+      }
+      documentCanvas.width = width;
+      documentCanvas.height = height;
+      const context = documentCanvas.getContext('2d');
+      if (!context) {
+        if (captureError) {
+          captureError.textContent = 'No fue posible preparar la imagen del documento.';
+          captureError.classList.remove('hidden');
+        }
+        return;
+      }
+      context.drawImage(documentVideo, 0, 0, width, height);
+      capturedDocumentDataUrl = documentCanvas.toDataURL('image/jpeg', 0.95);
+      if (documentPreview) {
+        documentPreview.src = capturedDocumentDataUrl;
+      }
+      showDocumentReviewStep();
+      stopDocumentCamera();
+      processCapturedDocument(capturedDocumentDataUrl);
+    }
+
+    function formatNameCase(value = '') {
+      const lower = value.toLowerCase();
+      return lower.replace(/\b([a-záéíóúñü]+)\b/g, (match) => match.charAt(0).toUpperCase() + match.slice(1));
+    }
+
+    function extractDocumentFields(text = '') {
+      if (!text) return { name: '', curp: '' };
+      const sanitized = text.replace(/\r/g, '');
+      const lines = sanitized
+        .split('\n')
+        .map((line) => line.replace(/[^\p{L}\p{N}.,\s-]/gu, ' ').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      const upperLines = lines.map((line) => line.toUpperCase());
+      const keywords = new Set([
+        'MEXICO',
+        'ESTADOS UNIDOS MEXICANOS',
+        'INSTITUTO',
+        'NACIONAL',
+        'ELECTORAL',
+        'CREDENCIAL PARA VOTAR',
+        'DOMICILIO',
+        'SECCION',
+        'SECCIÓN',
+        'CLAVE DE ELECTOR',
+        'CLAVE',
+        'CURP',
+        'VIGENCIA',
+        'EMISION',
+        'EMISIÓN',
+        'REGISTRO',
+        'MUNICIPIO',
+        'ESTADO',
+        'SEXO',
+        'ID',
+        'DOCUMENTO',
+        'PASAPORTE',
+        'LICENCIA',
+      ]);
+
+      const curpMatch = sanitized.toUpperCase().match(/\b[A-ZÑ]{4}\d{6}[HM][A-ZÑ]{5}[0-9A-Z]{2}\b/);
+      const curp = curpMatch ? curpMatch[0].replace(/[^A-Z0-9Ñ]/g, '') : '';
+
+      let name = '';
+      const nombreIndex = upperLines.findIndex((line) => line.startsWith('NOMBRE'));
+      if (nombreIndex !== -1) {
+        for (let i = nombreIndex + 1; i < Math.min(upperLines.length, nombreIndex + 4); i += 1) {
+          const candidate = upperLines[i];
+          if (!candidate) continue;
+          if (/\d/.test(candidate)) break;
+          if (keywords.has(candidate)) continue;
+          if (candidate.length < 5) continue;
+          name = lines[i];
+          break;
+        }
+      }
+
+      if (!name) {
+        const candidates = lines.filter((line, index) => {
+          const upper = upperLines[index];
+          if (!upper) return false;
+          if (/\d/.test(upper)) return false;
+          if (upper.length < 6) return false;
+          if (keywords.has(upper)) return false;
+          if (upper.split(' ').length < 2) return false;
+          return true;
+        });
+        candidates.sort((a, b) => b.length - a.length);
+        name = candidates[0] || '';
+      }
+
+      return {
+        name: formatNameCase(name),
+        curp,
+      };
+    }
+
+    async function processCapturedDocument(imageDataUrl) {
+      if (!imageDataUrl) return;
+      if (!window.Tesseract) {
+        if (ocrProgress) {
+          ocrProgress.textContent = 'No se pudo cargar el lector de texto (OCR). Ingresa los datos manualmente.';
+        }
+        if (submitAddEmployeeBtn) submitAddEmployeeBtn.disabled = false;
+        return;
+      }
+      if (ocrProgress) {
+        ocrProgress.textContent = 'Analizando el documento…';
+      }
+      try {
+        const result = await window.Tesseract.recognize(imageDataUrl, 'spa+eng', {
+          logger: updateOcrProgress,
+        });
+        const extracted = extractDocumentFields(result?.data?.text || '');
+        if (addEmployeeNameInput) {
+          addEmployeeNameInput.value = extracted.name || '';
+        }
+        if (addEmployeeCurpInput) {
+          addEmployeeCurpInput.value = extracted.curp || '';
+        }
+        if (ocrProgress) {
+          if (extracted.name || extracted.curp) {
+            ocrProgress.textContent = 'Datos detectados. Verifica que coincidan con la identificación.';
+          } else {
+            ocrProgress.textContent = 'No se detectaron todos los datos. Completa la información manualmente.';
+          }
+        }
+      } catch (error) {
+        console.error('Error al procesar el documento:', error);
+        if (ocrProgress) {
+          ocrProgress.textContent = 'No se pudo leer el documento. Corrige los datos manualmente o toma otra foto.';
+        }
+      } finally {
+        if (submitAddEmployeeBtn) {
+          submitAddEmployeeBtn.disabled = false;
+        }
+      }
+    }
+
+    function ensureDocumentValues() {
+      const name = (addEmployeeNameInput?.value || '').trim();
+      const curp = (addEmployeeCurpInput?.value || '').trim().toUpperCase();
+      return { name, curp };
+    }
+
+    function showAssignmentQuestionSection() {
+      if (assignmentQuestion) {
+        assignmentQuestion.classList.remove('hidden');
+      }
+    }
+
+    async function createManualEmployee({ name, position = '', department = '', curp = '', company = '' }) {
       if (USE_LOCAL_DATA_ONLY) {
         const tempId = `manual-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-        const newEmployee = prepareEmployee(
-          {
-            id: tempId,
-            name,
-            position,
-            department,
-          },
-          formatForInput(currentDate)
-        );
+        const finalId = (curp && curp.trim()) || tempId;
+        const dateStr = formatForInput(currentDate);
+        const rawEmployee = {
+          id: finalId,
+          name,
+          position,
+          department: department || company || '',
+          company: company || department || '',
+          curp: (curp && curp.trim()) || finalId,
+          checkedIn: false,
+          attendanceRecorded: false,
+          checkedInAt: null,
+        };
+        const withCheckout = applyCheckoutStateToEmployee(rawEmployee, dateStr);
+        const newEmployee = attachComputedFields(withCheckout);
         employees.push(newEmployee);
         employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
         attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
@@ -958,6 +1292,8 @@
               name,
               position,
               department,
+              curp,
+              company,
             },
           }),
         });
@@ -1443,6 +1779,27 @@
       });
     }
 
+    if (cancelReviewBtn) {
+      cancelReviewBtn.addEventListener('click', () => {
+        hideAddEmployeeModal();
+      });
+    }
+
+    if (captureDocumentBtn) {
+      captureDocumentBtn.addEventListener('click', () => {
+        captureDocumentFrame();
+      });
+    }
+
+    if (retakeDocumentBtn) {
+      retakeDocumentBtn.addEventListener('click', () => {
+        capturedDocumentDataUrl = '';
+        stopDocumentCamera();
+        showDocumentCaptureStep();
+        startDocumentCamera();
+      });
+    }
+
     if (addEmployeeModal) {
       addEmployeeModal.addEventListener('click', (event) => {
         if (event.target === addEmployeeModal) {
@@ -1451,18 +1808,28 @@
       });
     }
 
+    if (addEmployeeCurpInput) {
+      addEmployeeCurpInput.addEventListener('input', () => {
+        addEmployeeCurpInput.value = addEmployeeCurpInput.value.toUpperCase();
+      });
+    }
+
     if (addEmployeeForm) {
       addEmployeeForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!submitAddEmployeeBtn) return;
 
-        const name = (addEmployeeNameInput?.value || '').trim();
-        const position = (addEmployeePositionInput?.value || '').trim();
-        const department = (addEmployeeDepartmentInput?.value || '').trim();
+        const { name, curp } = ensureDocumentValues();
 
         if (!name) {
-          alert('Por favor escribe el nombre del colaborador.');
+          alert('No se detectó el nombre. Escríbelo tal como aparece en la identificación.');
           addEmployeeNameInput?.focus();
+          return;
+        }
+
+          if (!curp || curp.length < 18) {
+          alert('La CURP es obligatoria para registrar al colaborador. Verifica el dato.');
+          addEmployeeCurpInput?.focus();
           return;
         }
 
@@ -1470,14 +1837,35 @@
         submitAddEmployeeBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
         try {
-          await createManualEmployee({ name, position, department });
-          hideAddEmployeeModal();
+          if (!documentEmployeeCreated) {
+            await createManualEmployee({ name, position: '', department: '', curp });
+            documentEmployeeCreated = true;
+          }
+          showAssignmentQuestionSection();
         } catch (error) {
           alert('No se pudo agregar al empleado. ' + (error?.message || 'Inténtalo nuevamente.'));
+          documentEmployeeCreated = false;
         } finally {
           submitAddEmployeeBtn.disabled = false;
           submitAddEmployeeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
+      });
+    }
+
+    if (assignNowBtn) {
+      assignNowBtn.addEventListener('click', () => {
+        const { name, curp } = ensureDocumentValues();
+        const params = new URLSearchParams();
+        if (curp) params.set('curp', curp);
+        if (name) params.set('nombre', name);
+        hideAddEmployeeModal();
+        window.location.href = `seleccionar_personal.html${params.toString() ? `?${params.toString()}` : ''}`;
+      });
+    }
+
+    if (assignLaterBtn) {
+      assignLaterBtn.addEventListener('click', () => {
+        hideAddEmployeeModal();
       });
     }
 
