@@ -384,19 +384,21 @@
 
     .search-panel {
       position: fixed;
-      top: 8rem;
+      top: clamp(6.5rem, 11vw, 8rem);
       right: clamp(1.5rem, 4vw, 3.75rem);
       width: min(90vw, 24rem);
       z-index: 40;
       opacity: 0;
-      transform: translateY(1rem);
+      --panel-shift-x: 0;
+      --panel-shift-y: 1rem;
+      transform: translate3d(var(--panel-shift-x), var(--panel-shift-y), 0);
       transition: opacity 0.24s ease, transform 0.24s ease;
       pointer-events: none;
     }
 
     .search-panel.active {
       opacity: 1;
-      transform: translateY(0);
+      --panel-shift-y: 0;
       pointer-events: auto;
     }
 
@@ -406,6 +408,61 @@
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
+    }
+
+    @media (max-width: 640px) {
+      .search-panel {
+        top: clamp(4.75rem, 12vw, 6rem);
+        right: auto;
+        left: 50%;
+        width: min(94vw, 25rem);
+        --panel-shift-x: -50%;
+      }
+
+      .search-card {
+        border-radius: 1.5rem;
+        padding: 1.35rem;
+        gap: 1.1rem;
+      }
+
+      .search-card-header h2 {
+        font-size: 1.05rem;
+      }
+
+      .search-input-field {
+        padding: 0.8rem 1rem;
+      }
+
+      .search-input-field input {
+        font-size: 0.9rem;
+      }
+
+      .worker-results {
+        gap: 0.85rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .search-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .close-search-button {
+        align-self: flex-end;
+      }
+
+      .worker-result-card {
+        padding: 1rem 1.1rem;
+      }
+
+      .worker-info h3 {
+        font-size: 0.98rem;
+      }
+
+      .worker-meta {
+        font-size: 0.82rem;
+      }
     }
 
     .search-card-header {
@@ -1645,6 +1702,8 @@
       y: window.innerHeight / 2,
     };
 
+    let lastPointerType = 'mouse';
+
     let isMenuOpen = false;
     let frameHandle = null;
     const IDLE_RADIUS = 35;
@@ -1671,6 +1730,33 @@
     let skipNextAssistiveClick = false;
     const assistiveDragOffset = { x: 0, y: 0 };
     const assistiveDragStart = { x: 0, y: 0 };
+
+    const MENU_EDGE_PADDING = 32;
+
+    if (window.PointerEvent) {
+      document.addEventListener(
+        'pointerdown',
+        (event) => {
+          lastPointerType = event.pointerType || 'mouse';
+        },
+        { passive: true }
+      );
+    } else {
+      document.addEventListener(
+        'touchstart',
+        () => {
+          lastPointerType = 'touch';
+        },
+        { passive: true }
+      );
+      document.addEventListener(
+        'mousedown',
+        () => {
+          lastPointerType = 'mouse';
+        },
+        { passive: true }
+      );
+    }
 
     const syncAssistiveButtonState = (coarse = isCoarsePointer()) => {
       if (!assistiveButton) return;
@@ -1721,6 +1807,20 @@
       frameHandle = requestAnimationFrame(renderMenu);
     };
 
+    const getMenuSafePosition = (x, y) => {
+      const paddingX = Math.min(window.innerWidth / 2, ACTIVE_RADIUS + MENU_EDGE_PADDING);
+      const paddingY = Math.min(window.innerHeight / 2, ACTIVE_RADIUS + MENU_EDGE_PADDING);
+      const safeX = clamp(x, paddingX, Math.max(paddingX, window.innerWidth - paddingX));
+      const safeY = clamp(y, paddingY, Math.max(paddingY, window.innerHeight - paddingY));
+      return { x: safeX, y: safeY };
+    };
+
+    const centerPointerForMenu = () => {
+      const { x, y } = getMenuSafePosition(window.innerWidth / 2, window.innerHeight / 2);
+      pointer.x = x;
+      pointer.y = y;
+    };
+
     const setMenuState = (open) => {
       if (open === isMenuOpen) {
         scheduleRender();
@@ -1731,17 +1831,25 @@
       radialMenu.classList.toggle('active', isMenuOpen);
       radialMenu.setAttribute('aria-hidden', isMenuOpen ? 'false' : 'true');
       syncAssistiveButtonState();
-      if (isMenuOpen) {
-        if (isCoarsePointer()) {
-          updatePointerFromAssistiveButton();
-        }
-      } else {
+      if (!isMenuOpen) {
         if (!isCoarsePointer()) {
           updateAssistiveButtonPosition(assistiveButtonRestPosition.x, assistiveButtonRestPosition.y);
         }
         updatePointerFromAssistiveButton();
       }
       scheduleRender();
+    };
+
+    const openRadialMenu = (options = {}) => {
+      const { x = pointer.x, y = pointer.y, forceCenter = false } = options;
+      if (forceCenter || isCoarsePointer()) {
+        centerPointerForMenu();
+      } else {
+        const safePoint = getMenuSafePosition(x, y);
+        pointer.x = safePoint.x;
+        pointer.y = safePoint.y;
+      }
+      setMenuState(true);
     };
 
     const closeRadialMenu = () => {
@@ -1853,9 +1961,6 @@
       event.stopPropagation();
       if (!isCoarsePointer()) return;
 
-      const rect = assistiveButton.getBoundingClientRect();
-      pointer.x = rect.left + rect.width / 2;
-      pointer.y = rect.top + rect.height / 2;
       assistiveButtonRestPosition.x = assistiveButtonPosition.x;
       assistiveButtonRestPosition.y = assistiveButtonPosition.y;
 
@@ -1864,7 +1969,7 @@
         return;
       }
 
-      setMenuState(true);
+      openRadialMenu({ forceCenter: true });
     });
 
     const updatePointerFromAssistiveButton = () => {
@@ -1950,9 +2055,7 @@
         return;
       }
       event.preventDefault();
-      pointer.x = event.clientX;
-      pointer.y = event.clientY;
-      setMenuState(true);
+      openRadialMenu({ x: event.clientX, y: event.clientY });
     });
 
     document.addEventListener('click', (event) => {
@@ -1961,7 +2064,10 @@
       }
   
       if (isSearchPanelOpen() && !searchPanel.contains(event.target)) {
-        closeSearchPanel();
+        const keepOpenForTouch = lastPointerType === 'touch' || isCoarsePointer();
+        if (!keepOpenForTouch) {
+          closeSearchPanel();
+        }
       }
     });
 
