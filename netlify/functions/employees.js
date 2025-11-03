@@ -105,6 +105,7 @@ async function ensureTable(sql) {
       position TEXT,
       department TEXT,
       checked_in BOOLEAN NOT NULL DEFAULT FALSE,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
@@ -123,6 +124,17 @@ async function ensureTable(sql) {
   await sql`
     ALTER TABLE employee_attendance
     ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ
+  `;
+
+  await sql`
+    ALTER TABLE employees
+    ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE
+  `;
+
+  await sql`
+    UPDATE employees
+    SET active = TRUE
+    WHERE active IS NULL
   `;
 }
 
@@ -217,6 +229,7 @@ export async function handler(event) {
         FROM employees e
         LEFT JOIN employee_attendance a
           ON a.employee_id = e.id AND a.attendance_date = ${resolved.key}
+        WHERE e.active IS DISTINCT FROM FALSE OR a.employee_id IS NOT NULL
         ORDER BY e.name ASC
       `;
 
@@ -274,8 +287,8 @@ export async function handler(event) {
         const department = toNullableText(singleEmployeePayload.department);
 
         const inserted = await sql`
-          INSERT INTO employees (id, name, position, department, checked_in, updated_at)
-          VALUES (${manualId}, ${name}, ${position}, ${department}, FALSE, now())
+          INSERT INTO employees (id, name, position, department, checked_in, active, updated_at)
+          VALUES (${manualId}, ${name}, ${position}, ${department}, FALSE, TRUE, now())
           RETURNING id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
         `;
 
@@ -296,11 +309,16 @@ export async function handler(event) {
 
       const incoming = Array.isArray(body.employees) ? body.employees : [];
       if (!incoming.length) {
-        const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
-        return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0, updated: 0, matchedByName: 0, promoted: 0 }) };
+        const rows = await sql`
+          SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
+          FROM employees
+          WHERE active IS DISTINCT FROM FALSE
+          ORDER BY name ASC
+        `;
+        return { statusCode: 200, headers, body: JSON.stringify({ employees: rows.map(mapRow), inserted: 0, skipped: 0, updated: 0, matchedByName: 0, promoted: 0, deactivated: 0 }) };
       }
 
-      const existingRows = await sql`SELECT id, name, position, department, checked_in FROM employees`;
+      const existingRows = await sql`SELECT id, name, position, department, checked_in, active FROM employees`;
       const existingById = new Map();
       const existingByName = new Map();
       existingRows.forEach(row => {
@@ -317,6 +335,7 @@ export async function handler(event) {
       const updatesById = [];
       const updatesByName = [];
       const promotions = [];
+      const activeIncomingIds = new Set();
       let skipped = 0;
 
       for (const raw of incoming) {
@@ -352,6 +371,7 @@ export async function handler(event) {
         const existingByIdRow = id ? existingById.get(id) : null;
         if (existingByIdRow) {
           updatesById.push({ id, name, position, department, checkedIn, hasChecked, existing: existingByIdRow });
+          activeIncomingIds.add(existingByIdRow.id);
           existingByName.set(nameKey, { ...existingByIdRow, name });
           continue;
         }
@@ -359,6 +379,7 @@ export async function handler(event) {
         const existingByNameRow = nameKey ? existingByName.get(nameKey) : null;
         if (existingByNameRow && existingByNameRow.id && existingByNameRow.id.startsWith('manual-') && id) {
           promotions.push({ oldId: existingByNameRow.id, newId: id, name, position, department, checkedIn, hasChecked, existing: existingByNameRow });
+          activeIncomingIds.add(id);
           existingById.set(id, { ...existingByNameRow, id });
           existingByName.set(nameKey, { ...existingByNameRow, id });
           continue;
@@ -366,11 +387,13 @@ export async function handler(event) {
 
         if (existingByNameRow) {
           updatesByName.push({ id: existingByNameRow.id, name, position, department, checkedIn, hasChecked, existing: existingByNameRow });
+          activeIncomingIds.add(existingByNameRow.id);
           continue;
         }
 
         const finalId = id || generateManualId();
         inserts.push({ id: finalId, name, position, department, checkedIn });
+        activeIncomingIds.add(finalId);
       }
 
       let inserted = 0;
@@ -391,6 +414,7 @@ export async function handler(event) {
               position = ${toNullableText(finalPosition)},
               department = ${toNullableText(finalDepartment)},
               checked_in = ${finalChecked},
+              active = TRUE,
               updated_at = now()
           WHERE id = ${item.id}
         `;
@@ -409,6 +433,7 @@ export async function handler(event) {
               position = ${toNullableText(finalPosition)},
               department = ${toNullableText(finalDepartment)},
               checked_in = ${finalChecked},
+              active = TRUE,
               updated_at = now()
           WHERE id = ${item.id}
         `;
@@ -422,13 +447,14 @@ export async function handler(event) {
         const finalChecked = item.hasChecked ? item.checkedIn : Boolean(item.existing.checked_in);
 
         await sql`
-          INSERT INTO employees (id, name, position, department, checked_in, updated_at)
-          VALUES (${item.newId}, ${finalName}, ${toNullableText(finalPosition)}, ${toNullableText(finalDepartment)}, ${finalChecked}, now())
+          INSERT INTO employees (id, name, position, department, checked_in, active, updated_at)
+          VALUES (${item.newId}, ${finalName}, ${toNullableText(finalPosition)}, ${toNullableText(finalDepartment)}, ${finalChecked}, TRUE, now())
           ON CONFLICT (id) DO UPDATE
           SET name = EXCLUDED.name,
               position = EXCLUDED.position,
               department = EXCLUDED.department,
               checked_in = EXCLUDED.checked_in,
+              active = TRUE,
               updated_at = now()
         `;
 
@@ -442,8 +468,8 @@ export async function handler(event) {
         promoted += 1;
       }
 
-        if (inserts.length) {
-        const columns = ['id', 'name', 'position', 'department', 'checked_in'];
+      if (inserts.length) {
+        const columns = ['id', 'name', 'position', 'department', 'checked_in', 'active'];
         const paramsPerRow = columns.length;
         const placeholders = inserts
           .map((_, rowIndex) => {
@@ -454,7 +480,7 @@ export async function handler(event) {
           .join(', ');
 
         const query = `
-          INSERT INTO employees (id, name, position, department, checked_in)
+          INSERT INTO employees (id, name, position, department, checked_in, active)
           VALUES ${placeholders}
           ON CONFLICT (id) DO NOTHING
           RETURNING id
@@ -466,6 +492,7 @@ export async function handler(event) {
           toNullableText(e.position),
           toNullableText(e.department),
           e.checkedIn,
+          true,
         ]);
 
         const insertedRows = await sql(query, queryParams);
@@ -475,7 +502,29 @@ export async function handler(event) {
 
       skipped += skippedFromInsert;
 
-      const rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
+      const currentlyActiveIds = new Set(existingRows.filter(row => row.active !== false).map(row => row.id));
+      const idsToDeactivate = [...currentlyActiveIds].filter(id => !activeIncomingIds.has(id));
+
+      let deactivated = 0;
+      if (idsToDeactivate.length) {
+        const deactivatedRows = await sql(
+          `UPDATE employees
+             SET active = FALSE,
+                 checked_in = FALSE,
+                 updated_at = now()
+           WHERE id = ANY($1::text[])
+           RETURNING id`,
+          [idsToDeactivate]
+        );
+        deactivated = Array.isArray(deactivatedRows) ? deactivatedRows.length : 0;
+      }
+
+      const rows = await sql`
+        SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
+        FROM employees
+        WHERE active IS DISTINCT FROM FALSE
+        ORDER BY name ASC
+      `;
       return {
         statusCode: 200,
         headers,
@@ -486,6 +535,7 @@ export async function handler(event) {
           updated,
           matchedByName,
           promoted,
+          deactivated,
         }),
       };
     }
@@ -547,11 +597,17 @@ export async function handler(event) {
             FROM employees e
             LEFT JOIN employee_attendance a
               ON a.employee_id = e.id AND a.attendance_date = ${resolvedDate.key}
+            WHERE e.active IS DISTINCT FROM FALSE OR a.employee_id IS NOT NULL
             ORDER BY e.name ASC
           `;
           hasAttendanceRecords = rows.some(row => row.attendance_recorded);
         } else {
-          rows = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
+          rows = await sql`
+            SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
+            FROM employees
+            WHERE active IS DISTINCT FROM FALSE
+            ORDER BY name ASC
+          `;
         }
 
         const responseBody = {
@@ -603,7 +659,12 @@ export async function handler(event) {
         `;
       }
 
-      const rowsAfterDelete = await sql`SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at FROM employees ORDER BY name ASC`;
+      const rowsAfterDelete = await sql`
+        SELECT id, name, position, department, checked_in, FALSE AS attendance_recorded, NULL::TIMESTAMPTZ AS checked_in_at
+        FROM employees
+        WHERE active IS DISTINCT FROM FALSE
+        ORDER BY name ASC
+      `;
       return { statusCode: 200, headers, body: JSON.stringify({ employees: rowsAfterDelete.map(mapRow), deleted: deletedRows.length }) };
     }
 
