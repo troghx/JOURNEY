@@ -1177,6 +1177,9 @@
           summaryParts.push(`Actualizados por ID: ${payload.updated ?? 0}`);
           summaryParts.push(`Actualizados por nombre: ${payload.matchedByName ?? 0}`);
           summaryParts.push(`Convertidos desde alta manual: ${payload.promoted ?? 0}`);
+          if (typeof payload.deactivated === 'number') {
+            summaryParts.push(`Desactivados (no presentes en Excel): ${payload.deactivated}`);
+          }
           alert('Importación completada.\n' + summaryParts.join('\n'));
         }
       } catch (error) {
