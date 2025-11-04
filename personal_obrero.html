@@ -123,10 +123,48 @@
       -webkit-backdrop-filter: blur(14px);
     }
 
+    .radial-menu .menu-item svg {
+      transition: opacity 0.2s ease, transform 0.22s ease;
+    }
+
     .radial-menu.active .menu-item {
       opacity: 1;
       pointer-events: auto;
       background: rgba(17, 24, 39, 0.9);
+    }
+
+    .radial-menu:not(.active) .menu-item svg {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+
+    .radial-menu.active .menu-item svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .radial-menu .menu-item::after {
+      content: '';
+      position: absolute;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 9999px;
+      background: rgba(236, 253, 245, 0.92);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.32);
+      opacity: 0;
+      transform: scale(0.45);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+    }
+
+    .radial-menu:not(.active) .menu-item::after {
+      opacity: 0.85;
+      transform: scale(1);
+    }
+
+    .radial-menu.active .menu-item::after {
+      opacity: 0;
+      transform: scale(0.4);
     }
 
     .radial-menu .menu-item:hover {
@@ -465,6 +503,70 @@
       gap: 1.75rem;
     }
 
+    .company-search {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 28rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .company-search-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(203, 213, 225, 0.7);
+    }
+
+    .company-search-field {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.55);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.25);
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .company-search-field svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      color: rgba(148, 163, 184, 0.75);
+      flex-shrink: 0;
+    }
+
+    .company-search-field input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-size: 0.92rem;
+      line-height: 1.4;
+      outline: none;
+    }
+
+    .company-search-field input::placeholder {
+      color: rgba(148, 163, 184, 0.6);
+    }
+
+    .company-search-field:focus-within {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: rgba(15, 23, 42, 0.75);
+      box-shadow: 0 12px 28px rgba(6, 95, 70, 0.25);
+    }
+
+    .company-search-field input:disabled {
+      color: rgba(148, 163, 184, 0.55);
+      cursor: not-allowed;
+    }
+
+    .company-search-field input:disabled::placeholder {
+      color: rgba(148, 163, 184, 0.45);
+    }
+
     .company-helper {
       margin: 0 auto;
       max-width: 32rem;
@@ -507,6 +609,9 @@
       flex-direction: column;
       gap: 1.1rem;
       overflow: hidden;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
     }
 
     .company-card::before {
@@ -517,6 +622,11 @@
         radial-gradient(circle at 80% 10%, rgba(96, 165, 250, 0.14), transparent 60%);
       opacity: 0.75;
       pointer-events: none;
+    }
+
+    .company-card--visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .company-card > * {
@@ -588,6 +698,35 @@
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
+    }
+
+    .company-load-more {
+      align-self: center;
+      padding: 0.7rem 1.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.18);
+      color: rgba(236, 253, 245, 0.95);
+      font-size: 0.78rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .company-load-more:hover:not(:disabled) {
+      background: rgba(16, 185, 129, 0.28);
+      border-color: rgba(16, 185, 129, 0.55);
+      box-shadow: 0 18px 32px rgba(6, 95, 70, 0.32);
+      transform: translateY(-1px);
+    }
+
+    .company-load-more:disabled,
+    .company-load-more[aria-hidden='true'] {
+      cursor: not-allowed;
+      opacity: 0.5;
+      box-shadow: none;
     }
 
     .search-panel {
@@ -1325,10 +1464,39 @@
         </div>
       </div>
       <div class="company-content">
+        <div class="company-search">
+          <label class="company-search-label" for="company-search-input">Buscar compañía</label>
+          <div class="company-search-field">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="20" y1="20" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              id="company-search-input"
+              type="search"
+              placeholder="Buscar por nombre o ID"
+              autocomplete="off"
+              spellcheck="false"
+              aria-disabled="true"
+              disabled
+            />
+          </div>
+        </div>
         <p id="company-helper" class="company-helper" aria-live="polite">
           Carga el directorio desde el menú radial para ver las compañías disponibles.
         </p>
         <div id="company-list" class="company-grid" role="list" hidden></div>
+        <button
+          id="load-more-companies"
+          class="company-load-more"
+          type="button"
+          aria-hidden="true"
+          aria-controls="company-list"
+          disabled
+          hidden
+        >
+          Mostrar más
+        </button>
       </div>
     </div>
   </section>
@@ -1488,6 +1656,7 @@
       radialMenu.dataset.items = menuItems.length ? String(menuItems.length) : '0';
     };
     updateMenuItems();
+    const supportsIntersectionObserver = 'IntersectionObserver' in window;
     const assistiveButton = document.getElementById('radial-assistive-button');
     const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
     const searchPanel = document.getElementById('search-panel');
@@ -1503,6 +1672,8 @@
     const companyList = document.getElementById('company-list');
     const companyCount = document.getElementById('company-count');
     const companyCountLabel = document.querySelector('.companies-count-label');
+    const companySearchInput = document.getElementById('company-search-input');
+    const companyLoadMoreButton = document.getElementById('load-more-companies');
     const addCompanyMenuItem = radialMenu?.querySelector('[data-action="agregar-compania"]') ?? null;
     const companiesMenuItem = radialMenu?.querySelector('[data-action="ver-companias"]') ?? null;
 
@@ -1634,6 +1805,70 @@
       }
     };
 
+    const companyRenderState = {
+      sortedCompanies: [],
+      filteredCompanies: [],
+      visibleCount: 0,
+      pageSize: 10,
+      searchTerm: '',
+      observer: null,
+    };
+
+    const resetCompanyCardObserver = () => {
+      if (companyRenderState.observer) {
+        companyRenderState.observer.disconnect();
+      }
+    };
+
+    const ensureCompanyObserver = () => {
+      if (!supportsIntersectionObserver) {
+        return null;
+      }
+      if (!companyRenderState.observer) {
+        companyRenderState.observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              entry.target.classList.toggle('company-card--visible', entry.isIntersecting);
+            });
+          },
+          { threshold: 0.2 }
+        );
+      }
+      return companyRenderState.observer;
+    };
+
+    const observeCompanyCard = (card) => {
+      if (!card) return;
+      if (!supportsIntersectionObserver) {
+        card.classList.add('company-card--visible');
+        return;
+      }
+      const observer = ensureCompanyObserver();
+      observer?.observe(card);
+    };
+
+    const updateLoadMoreButton = () => {
+      if (!companyLoadMoreButton) return;
+      const total = companyRenderState.filteredCompanies.length;
+      const hasMore = total > companyRenderState.visibleCount;
+      companyLoadMoreButton.hidden = !hasMore;
+      companyLoadMoreButton.disabled = !hasMore;
+      companyLoadMoreButton.setAttribute('aria-hidden', hasMore ? 'false' : 'true');
+    };
+
+    const setCompanySearchAvailability = (enabled) => {
+      if (!companySearchInput) return;
+      companySearchInput.disabled = !enabled;
+      companySearchInput.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+    };
+
+    const syncCompanySearchInput = () => {
+      if (!companySearchInput) return;
+      if (companySearchInput.value !== companyRenderState.searchTerm) {
+        companySearchInput.value = companyRenderState.searchTerm;
+      }
+    };
+
     const createCompanyCard = (company, index) => {
       const card = document.createElement('article');
       card.className = 'company-card glass-panel';
@@ -1680,30 +1915,97 @@
       return card;
     };
 
-    const renderCompanyList = (companies) => {
+    const renderCompanyList = () => {
       if (!companyList) return;
-      const sortedCompanies = [...companies].sort((companyA, companyB) => {
-        const nameA = getCompanyDisplayName(companyA);
-        const nameB = getCompanyDisplayName(companyB);
-        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
-      });
 
-      if (sortedCompanies.length === 0) {
+
+      resetCompanyCardObserver();
+
+      const totalAvailable = companyRenderState.filteredCompanies.length;
+      let { visibleCount } = companyRenderState;
+
+      if (totalAvailable === 0) {
         companyList.hidden = true;
         companyList.replaceChildren();
         updateCompanyCount(0);
-        showCompanyMessage('No hay compañías registradas en este proyecto.', 'empty');
+        const hasSearchTerm = normalizeValue(companyRenderState.searchTerm).length > 0;
+        showCompanyMessage(
+          hasSearchTerm
+            ? 'No se encontraron compañías que coincidan con tu búsqueda.'
+            : 'No hay compañías registradas en este proyecto.',
+          'empty'
+        );
+        updateLoadMoreButton();
+        return;
+      }
+
+      if (visibleCount <= 0) {
+        visibleCount = Math.min(companyRenderState.pageSize, totalAvailable);
+        companyRenderState.visibleCount = visibleCount;
+      }
+
+      const visibleCompanies = companyRenderState.filteredCompanies.slice(0, visibleCount);
+
+      if (visibleCompanies.length === 0) {
+        companyList.hidden = true;
+        companyList.replaceChildren();
+        updateCompanyCount(totalAvailable);
+        updateLoadMoreButton();
         return;
       }
 
       const fragment = document.createDocumentFragment();
-      sortedCompanies.forEach((company, index) => {
+      visibleCompanies.forEach((company, index) => {
         fragment.appendChild(createCompanyCard(company, index));
       });
+      
       companyList.replaceChildren(fragment);
       companyList.hidden = false;
       hideCompanyMessage();
-      updateCompanyCount(sortedCompanies.length);
+      updateCompanyCount(totalAvailable);
+      updateLoadMoreButton();
+
+      requestAnimationFrame(() => {
+        const cards = companyList.querySelectorAll('.company-card');
+        cards.forEach((card) => observeCompanyCard(card));
+      });
+    };
+
+    const applyCompanyFilter = (term) => {
+      const normalizedTerm = normalizeValue(term);
+      companyRenderState.searchTerm = term ?? '';
+      if (!companyRenderState.sortedCompanies.length) {
+        companyRenderState.filteredCompanies = [];
+        companyRenderState.visibleCount = 0;
+        renderCompanyList();
+        return;
+      }
+
+      if (!normalizedTerm) {
+        companyRenderState.filteredCompanies = companyRenderState.sortedCompanies.slice();
+      } else {
+        companyRenderState.filteredCompanies = companyRenderState.sortedCompanies.filter((company) => {
+          const nameValue = normalizeValue(getCompanyDisplayName(company));
+          const idValue = normalizeValue(company?.id ?? '');
+          return nameValue.includes(normalizedTerm) || idValue.includes(normalizedTerm);
+        });
+      }
+
+      companyRenderState.visibleCount = Math.min(
+        companyRenderState.pageSize,
+        companyRenderState.filteredCompanies.length
+      );
+      renderCompanyList();
+    };
+
+    const updateCompanyRenderData = (companies) => {
+      companyRenderState.sortedCompanies = [...companies].sort((companyA, companyB) => {
+        const nameA = getCompanyDisplayName(companyA);
+        const nameB = getCompanyDisplayName(companyB);
+        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+      });
+      applyCompanyFilter(companyRenderState.searchTerm);
+      syncCompanySearchInput();
     };
 
     const showCompaniesDirectory = (options = {}) => {
@@ -1715,23 +2017,41 @@
       }
 
       if (!forceReload && companyDatasetState.loaded) {
-        renderCompanyList(companyDatasetState.data);
+        if (!companyRenderState.sortedCompanies.length) {
+          updateCompanyRenderData(companyDatasetState.data);
+        } else {
+          applyCompanyFilter(companyRenderState.searchTerm);
+          syncCompanySearchInput();
+        }
+        setCompanySearchAvailability(true);
         setCompanyListBusy(false);
         return;
       }
+      setCompanySearchAvailability(false);
 
       showCompanyMessage('Cargando compañías…', 'loading');
       companyList.hidden = true;
+      companyList.replaceChildren();
+      updateLoadMoreButton();
       setCompanyListBusy(true);
+      
       ensureCompanyDataset()
         .then((companies) => {
-          renderCompanyList(companies);
+          updateCompanyRenderData(companies);
+          setCompanySearchAvailability(true);
         })
         .catch((error) => {
           console.error('No se pudieron cargar las compañías.', error);
+          companyRenderState.sortedCompanies = [];
+          companyRenderState.filteredCompanies = [];
+          companyRenderState.visibleCount = 0;
+          companyRenderState.searchTerm = '';
           companyList.hidden = true;
           companyList.replaceChildren();
           updateCompanyCount(null);
+          updateLoadMoreButton();
+          syncCompanySearchInput();
+          setCompanySearchAvailability(false);
           showCompanyMessage('No se pudieron cargar las compañías. Intenta nuevamente.', 'error');
         })
         .finally(() => {
@@ -1745,11 +2065,31 @@
         companyList.replaceChildren();
         setCompanyListBusy(false);
       }
+      resetCompanyCardObserver();
+      companyRenderState.filteredCompanies = [];
+      companyRenderState.visibleCount = 0;
+      companyRenderState.searchTerm = '';
+      syncCompanySearchInput();
+      setCompanySearchAvailability(false);
+      updateLoadMoreButton();
       updateCompanyCount(null);
       showCompanyMessage('Carga el directorio desde el menú radial para ver las compañías disponibles.');
     };
 
     updateCompanyCount(null);
+    companySearchInput?.addEventListener('input', (event) => {
+      applyCompanyFilter(event.target.value ?? '');
+    });
+
+    companyLoadMoreButton?.addEventListener('click', () => {
+      const total = companyRenderState.filteredCompanies.length;
+      if (!total) return;
+      const nextCount = Math.min(total, companyRenderState.visibleCount + companyRenderState.pageSize);
+      if (nextCount !== companyRenderState.visibleCount) {
+        companyRenderState.visibleCount = nextCount;
+        renderCompanyList();
+      }
+    });
 
     const VIEW_STATES = {
       PERSONAL: 'personal',
