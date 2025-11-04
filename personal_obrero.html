@@ -339,7 +339,7 @@
       transition: color 0.18s ease, transform 0.2s ease;
     }
 
-    body.coarse-pointer .radial-menu .menu-item:nth-child(3) {
+    body.coarse-pointer .radial-menu[data-items='3'] .menu-item:nth-child(3) {
       grid-column: 1 / -1;
     }
 
@@ -380,6 +380,214 @@
 
     body.coarse-pointer .radial-menu .menu-item .menu-label {
       margin: 0;
+    }
+
+    .companies-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .companies-summary {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+      }
+    }
+
+    .companies-eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.75);
+      margin-bottom: 0.75rem;
+    }
+
+    .companies-title {
+      font-size: clamp(1.35rem, 3vw, 1.85rem);
+      font-weight: 600;
+      color: #f8fafc;
+      margin: 0;
+    }
+
+    .companies-description {
+      margin-top: 0.85rem;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .companies-meta {
+      align-self: flex-start;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 1rem 1.25rem;
+      border-radius: 1.25rem;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      min-width: 8.5rem;
+      gap: 0.35rem;
+    }
+
+    @media (max-width: 767px) {
+      .companies-meta {
+        align-self: stretch;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.85rem 1rem;
+      }
+    }
+
+    .companies-count {
+      font-size: 2.1rem;
+      font-weight: 600;
+      line-height: 1;
+      color: #cbd5f5;
+    }
+
+    .companies-count-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .company-content {
+      margin-top: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .company-helper {
+      margin: 0 auto;
+      max-width: 32rem;
+      text-align: center;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: rgba(226, 232, 240, 0.75);
+      transition: color 0.2s ease;
+    }
+
+    .company-helper.hidden {
+      display: none;
+    }
+
+    .company-helper--loading {
+      color: rgba(125, 211, 252, 0.82);
+    }
+
+    .company-helper--error {
+      color: rgba(248, 113, 113, 0.82);
+    }
+
+    .company-helper--empty {
+      color: rgba(203, 213, 225, 0.72);
+    }
+
+    .company-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.35rem;
+    }
+
+    .company-card {
+      position: relative;
+      padding: 1.6rem;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.32);
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      overflow: hidden;
+    }
+
+    .company-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(148, 163, 184, 0.18), transparent 55%),
+        radial-gradient(circle at 80% 10%, rgba(96, 165, 250, 0.14), transparent 60%);
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    .company-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .company-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .company-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.1rem;
+      height: 2.1rem;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.16);
+      color: rgba(16, 185, 129, 0.9);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .company-card-title {
+      flex: 1;
+      font-size: 1.05rem;
+      line-height: 1.35;
+      font-weight: 600;
+      color: #f8fafc;
+      margin: 0;
+    }
+
+    .company-card-id {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.75);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .company-card-id code {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: rgba(226, 232, 240, 0.9);
+      background: rgba(15, 23, 42, 0.65);
+      padding: 0.3rem 0.5rem;
+      border-radius: 0.6rem;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    .company-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      letter-spacing: 0.03em;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .company-card-footer span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
     }
 
     .search-panel {
@@ -1073,20 +1281,55 @@
   </a>
 
   <header class="glass-panel mt-20 sm:mt-24 w-full max-w-3xl rounded-3xl px-6 py-8 sm:px-8 sm:py-10 text-center">
-    <p class="text-sm font-medium uppercase tracking-[0.3em] text-white/60">Personal Obrero</p>
-    <h1 class="mt-4 text-3xl font-semibold text-white">
-      Bienvenido <span id="welcome-name" class="text-emerald-200"></span>
-    </h1>
-    <p class="mt-2 text-lg text-white/80">¿Qué haremos hoy?</p>
+    <div id="header-personal" class="flex flex-col items-center" aria-hidden="false">
+      <p class="text-sm font-medium uppercase tracking-[0.3em] text-white/60">Personal Obrero</p>
+      <h1 class="mt-4 text-3xl font-semibold text-white">
+        Bienvenido <span id="welcome-name" class="text-emerald-200"></span>
+      </h1>
+      <p class="mt-2 text-lg text-white/80">¿Qué haremos hoy?</p>
+    </div>
+    <div id="header-companies" class="hidden flex flex-col items-center" aria-hidden="true">
+      <p class="text-sm font-medium uppercase tracking-[0.3em] text-white/60">Directorio de compañías</p>
+      <h1 class="mt-4 text-3xl font-semibold text-white">Compañías del proyecto</h1>
+      <p class="mt-2 text-lg text-white/80">Explora y gestiona las empresas vinculadas a este módulo.</p>
+    </div>
   </header>
 
-  <section class="mt-10 sm:mt-14 w-full max-w-4xl">
+  <section id="personal-intro" class="mt-10 sm:mt-14 w-full max-w-4xl" aria-hidden="false">
     <div class="glass-panel rounded-3xl px-6 py-8 sm:px-8 sm:py-10 text-center">
       <p class="text-base text-white/70">
         Explora las acciones disponibles con el menú radial. Haz clic derecho en cualquier parte de la pantalla para descubrir herramientas rápidas
         como búsqueda de personal, alta de colaboradores o la consulta de reportes generados.
       </p>
       <p class="mt-6 text-sm text-white/40">Tip: puedes cerrar el menú radial haciendo clic fuera de él o presionando la tecla Escape.</p>
+    </div>
+  </section>
+
+  <section
+    id="companies-view"
+    class="hidden mt-10 sm:mt-14 w-full max-w-5xl"
+    aria-hidden="true"
+  >
+    <div class="glass-panel rounded-3xl px-6 py-8 sm:px-8 sm:py-10">
+      <div class="companies-summary">
+        <div>
+          <p class="companies-eyebrow">Visión general</p>
+          <h2 class="companies-title">Directorio de compañías del proyecto actual</h2>
+          <p class="companies-description">
+            Consulta rápidamente las empresas registradas y mantén tu información al día. Utiliza el menú radial para sumar nuevas compañías cuando lo necesites.
+          </p>
+        </div>
+        <div class="companies-meta">
+          <span class="companies-count" id="company-count">—</span>
+          <span class="companies-count-label">compañías</span>
+        </div>
+      </div>
+      <div class="company-content">
+        <p id="company-helper" class="company-helper" aria-live="polite">
+          Carga el directorio desde el menú radial para ver las compañías disponibles.
+        </p>
+        <div id="company-list" class="company-grid" role="list" hidden></div>
+      </div>
     </div>
   </section>
 
@@ -1112,6 +1355,22 @@
         <path d="M9 3h6a2 2 0 012 2v14l-5-3-5 3V5a2 2 0 012-2z" />
       </svg>
       <span class="menu-label">Reportes</span>
+    </button>
+    <button type="button" class="menu-item" data-action="ver-companias">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M3 9l9-6 9 6v9a3 3 0 01-3 3H6a3 3 0 01-3-3z" />
+        <path d="M9 22V12h6v10" />
+      </svg>
+      <span class="menu-label">Compañías</span>
+    </button>
+    <button type="button" class="menu-item" data-action="agregar-compania" hidden>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M4 10V5a2 2 0 012-2h12a2 2 0 012 2v5" />
+        <path d="M3 10h18v9a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        <path d="M12 14v6" />
+        <path d="M9 17h6" />
+      </svg>
+      <span class="menu-label">Agregar compañía</span>
     </button>
   </div>
 
@@ -1219,13 +1478,33 @@
     }
 
     const radialMenu = document.getElementById('radial-menu');
-    const menuItems = Array.from(radialMenu.querySelectorAll('.menu-item'));
+    let menuItems = [];
+    const updateMenuItems = () => {
+      if (!radialMenu) {
+        menuItems = [];
+        return;
+      }
+      menuItems = Array.from(radialMenu.querySelectorAll('.menu-item:not([hidden])'));
+      radialMenu.dataset.items = menuItems.length ? String(menuItems.length) : '0';
+    };
+    updateMenuItems();
     const assistiveButton = document.getElementById('radial-assistive-button');
     const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
     const searchPanel = document.getElementById('search-panel');
     const closeSearchPanelButton = document.getElementById('close-search-panel');
     const searchInput = document.getElementById('worker-search-input');
     const workerResultsContainer = document.getElementById('worker-search-results');
+
+    const headerPersonal = document.getElementById('header-personal');
+    const headerCompanies = document.getElementById('header-companies');
+    const personalIntroSection = document.getElementById('personal-intro');
+    const companiesViewSection = document.getElementById('companies-view');
+    const companyHelper = document.getElementById('company-helper');
+    const companyList = document.getElementById('company-list');
+    const companyCount = document.getElementById('company-count');
+    const companyCountLabel = document.querySelector('.companies-count-label');
+    const addCompanyMenuItem = radialMenu?.querySelector('[data-action="agregar-compania"]') ?? null;
+    const companiesMenuItem = radialMenu?.querySelector('[data-action="ver-companias"]') ?? null;
 
     const statusChangeModal = document.getElementById('status-change-modal');
     const statusModalDescription = document.getElementById('status-modal-description');
@@ -1254,6 +1533,235 @@
       data: [],
       promise: null,
       error: null,
+    };
+
+    const companyDatasetState = {
+      data: [],
+      promise: null,
+      error: null,
+      loaded: false,
+    };
+
+    const ensureCompanyDataset = () => {
+      if (companyDatasetState.loaded) {
+        return Promise.resolve(companyDatasetState.data);
+      }
+
+      if (companyDatasetState.promise) {
+        return companyDatasetState.promise;
+      }
+
+      companyDatasetState.promise = fetch('data/empresas_con_id_deterministico.json')
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('No se pudo cargar el listado de compañías.');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const companies = Array.isArray(data) ? data : [];
+          companyDatasetState.data = companies;
+          companyDatasetState.error = null;
+          companyDatasetState.loaded = true;
+          return companies;
+        })
+        .catch((error) => {
+          companyDatasetState.error = error;
+          companyDatasetState.loaded = false;
+          throw error;
+        })
+        .finally(() => {
+          companyDatasetState.promise = null;
+        });
+
+      return companyDatasetState.promise;
+    };
+
+    const getCompanyDisplayName = (company) =>
+      cleanDisplayValue(company?.Empresa ?? '') || 'Sin nombre asignado';
+
+    const showCompanyMessage = (message, variant = 'info') => {
+      if (!companyHelper) return;
+      companyHelper.textContent = message;
+      companyHelper.classList.remove(
+        'company-helper--loading',
+        'company-helper--error',
+        'company-helper--empty',
+        'hidden'
+      );
+      if (variant === 'loading') {
+        companyHelper.classList.add('company-helper--loading');
+      } else if (variant === 'error') {
+        companyHelper.classList.add('company-helper--error');
+      } else if (variant === 'empty') {
+        companyHelper.classList.add('company-helper--empty');
+      }
+    };
+
+    const hideCompanyMessage = () => {
+      if (!companyHelper) return;
+      companyHelper.classList.remove(
+        'company-helper--loading',
+        'company-helper--error',
+        'company-helper--empty'
+      );
+      companyHelper.classList.add('hidden');
+    };
+
+    const setCompanyListBusy = (busy) => {
+      if (!companyList) return;
+      if (busy) {
+        companyList.setAttribute('aria-busy', 'true');
+      } else {
+        companyList.removeAttribute('aria-busy');
+      }
+    };
+
+    const updateCompanyCount = (count) => {
+      if (companyCount) {
+        if (typeof count === 'number' && Number.isFinite(count)) {
+          companyCount.textContent = new Intl.NumberFormat('es-MX').format(count);
+        } else {
+          companyCount.textContent = '—';
+        }
+      }
+      if (companyCountLabel) {
+        if (typeof count === 'number' && count === 1) {
+          companyCountLabel.textContent = 'compañía';
+        } else {
+          companyCountLabel.textContent = 'compañías';
+        }
+      }
+    };
+
+    const createCompanyCard = (company, index) => {
+      const card = document.createElement('article');
+      card.className = 'company-card glass-panel';
+      card.setAttribute('role', 'listitem');
+      card.dataset.companyId = company?.id ?? '';
+
+      const header = document.createElement('div');
+      header.className = 'company-card-header';
+
+      const badge = document.createElement('span');
+      badge.className = 'company-index';
+      badge.textContent = String(index + 1).padStart(2, '0');
+      header.appendChild(badge);
+
+      const title = document.createElement('h3');
+      title.className = 'company-card-title';
+      const displayName = getCompanyDisplayName(company);
+      title.textContent = displayName;
+      title.title = displayName;
+      header.appendChild(title);
+
+      card.appendChild(header);
+
+      const idRow = document.createElement('span');
+      idRow.className = 'company-card-id';
+      const idLabel = document.createElement('span');
+      idLabel.textContent = 'ID';
+      const idValue = document.createElement('code');
+      idValue.textContent = company?.id ? company.id : 'N/D';
+      idValue.title = company?.id ?? '';
+      idRow.append(idLabel, idValue);
+      card.appendChild(idRow);
+
+      const footer = document.createElement('div');
+      footer.className = 'company-card-footer';
+      const statusSpan = document.createElement('span');
+      statusSpan.textContent = 'Registro activo';
+      const keySpan = document.createElement('span');
+      const codeBase = company?.id ? company.id.toUpperCase() : 'N/D';
+      keySpan.textContent = `Clave ${codeBase.slice(0, 6)}${codeBase.length > 6 ? '…' : ''}`;
+      footer.append(statusSpan, keySpan);
+      card.appendChild(footer);
+
+      return card;
+    };
+
+    const renderCompanyList = (companies) => {
+      if (!companyList) return;
+      const sortedCompanies = [...companies].sort((companyA, companyB) => {
+        const nameA = getCompanyDisplayName(companyA);
+        const nameB = getCompanyDisplayName(companyB);
+        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+      });
+
+      if (sortedCompanies.length === 0) {
+        companyList.hidden = true;
+        companyList.replaceChildren();
+        updateCompanyCount(0);
+        showCompanyMessage('No hay compañías registradas en este proyecto.', 'empty');
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      sortedCompanies.forEach((company, index) => {
+        fragment.appendChild(createCompanyCard(company, index));
+      });
+      companyList.replaceChildren(fragment);
+      companyList.hidden = false;
+      hideCompanyMessage();
+      updateCompanyCount(sortedCompanies.length);
+    };
+
+    const showCompaniesDirectory = (options = {}) => {
+      if (!companyList) return;
+      const { forceReload = false } = options;
+
+      if (forceReload) {
+        companyDatasetState.loaded = false;
+      }
+
+      if (!forceReload && companyDatasetState.loaded) {
+        renderCompanyList(companyDatasetState.data);
+        setCompanyListBusy(false);
+        return;
+      }
+
+      showCompanyMessage('Cargando compañías…', 'loading');
+      companyList.hidden = true;
+      setCompanyListBusy(true);
+      ensureCompanyDataset()
+        .then((companies) => {
+          renderCompanyList(companies);
+        })
+        .catch((error) => {
+          console.error('No se pudieron cargar las compañías.', error);
+          companyList.hidden = true;
+          companyList.replaceChildren();
+          updateCompanyCount(null);
+          showCompanyMessage('No se pudieron cargar las compañías. Intenta nuevamente.', 'error');
+        })
+        .finally(() => {
+          setCompanyListBusy(false);
+        });
+    };
+
+    const resetCompaniesView = () => {
+      if (companyList) {
+        companyList.hidden = true;
+        companyList.replaceChildren();
+        setCompanyListBusy(false);
+      }
+      updateCompanyCount(null);
+      showCompanyMessage('Carga el directorio desde el menú radial para ver las compañías disponibles.');
+    };
+
+    updateCompanyCount(null);
+
+    const VIEW_STATES = {
+      PERSONAL: 'personal',
+      COMPANIES: 'companies',
+    };
+
+    let currentView = VIEW_STATES.PERSONAL;
+
+    const toggleSectionVisibility = (element, visible) => {
+      if (!element) return;
+      element.classList.toggle('hidden', !visible);
+      element.setAttribute('aria-hidden', visible ? 'false' : 'true');
     };
 
     const STATUS_LABELS = {
@@ -1774,6 +2282,9 @@
     const isSearchPanelOpen = () => searchPanel?.classList.contains('active');
 
     const applyMenuLayout = (radius, scale, opacity) => {
+      if (menuItems.length === 0) {
+        return;
+      }
       if (isCoarsePointer()) {
         menuItems.forEach((item) => {
           item.style.transform = '';
@@ -1805,6 +2316,44 @@
     const scheduleRender = () => {
       if (frameHandle !== null) return;
       frameHandle = requestAnimationFrame(renderMenu);
+    };
+
+    const setView = (view, options = {}) => {
+      const { force = false, reload = false } = options;
+      const showCompanies = view === VIEW_STATES.COMPANIES;
+
+      if (!force && currentView === view) {
+        if (showCompanies) {
+          showCompaniesDirectory({ forceReload: reload });
+        }
+        return;
+      }
+
+      currentView = view;
+      document.body.dataset.view = view;
+
+      toggleSectionVisibility(headerPersonal, !showCompanies);
+      toggleSectionVisibility(headerCompanies, showCompanies);
+      toggleSectionVisibility(personalIntroSection, !showCompanies);
+      toggleSectionVisibility(companiesViewSection, showCompanies);
+
+      if (addCompanyMenuItem) {
+        addCompanyMenuItem.hidden = !showCompanies;
+        addCompanyMenuItem.setAttribute('aria-hidden', showCompanies ? 'false' : 'true');
+      }
+
+      if (companiesMenuItem) {
+        companiesMenuItem.setAttribute('aria-pressed', showCompanies ? 'true' : 'false');
+      }
+
+      updateMenuItems();
+      scheduleRender();
+
+      if (showCompanies) {
+        showCompaniesDirectory({ forceReload: reload });
+      } else {
+        resetCompaniesView();
+      }
     };
 
     const getMenuSafePosition = (x, y) => {
@@ -2154,34 +2703,55 @@
       }
     });
 
-    menuItems.forEach((item) => {
-      item.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const action = item.dataset.action;
-        closeRadialMenu();
+    const showActionBanner = (message) => {
+      const messageBanner = document.createElement('div');
+      messageBanner.textContent = message;
+      messageBanner.className =
+        'fixed bottom-8 left-1/2 z-40 -translate-x-1/2 rounded-full bg-emerald-500/90 px-5 py-2 text-sm font-medium text-emerald-950 shadow-lg shadow-emerald-500/40 transition duration-300';
+      document.body.appendChild(messageBanner);
+      setTimeout(() => {
+        messageBanner.classList.add('opacity-0', 'translate-y-3');
+      }, 1800);
+      setTimeout(() => messageBanner.remove(), 2100);
+    };
 
-        if (action === 'buscar-personal') {
-          openSearchPanel();
-          return;
-        }
-    
-        if (action === 'registrar-personal') {
-          window.location.href = 'registro_obrero.html';
-          return;
-        }
+    radialMenu?.addEventListener('click', (event) => {
+      const targetItem = event.target.closest('.menu-item');
+      if (!targetItem || targetItem.hasAttribute('hidden')) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const action = targetItem.dataset.action;
+      closeRadialMenu();
 
-        if (!action) return;
+      if (action === 'buscar-personal') {
+        setView(VIEW_STATES.PERSONAL, { force: true });
+        openSearchPanel();
+        return;
+      }
 
-        const label = item.querySelector('.menu-label')?.textContent ?? action;
-        const messageBanner = document.createElement('div');
-        messageBanner.textContent = `Opción "${label}" seleccionada.`;
-        messageBanner.className = 'fixed bottom-8 left-1/2 z-40 -translate-x-1/2 rounded-full bg-emerald-500/90 px-5 py-2 text-sm font-medium text-emerald-950 shadow-lg shadow-emerald-500/40 transition duration-300';
-        document.body.appendChild(messageBanner);
-        setTimeout(() => {
-          messageBanner.classList.add('opacity-0', 'translate-y-3');
-        }, 1800);
-        setTimeout(() => messageBanner.remove(), 2100);
-      });
+      if (action === 'registrar-personal') {
+        setView(VIEW_STATES.PERSONAL, { force: true });
+        window.location.href = 'registro_obrero.html';
+        return;
+      }
+
+      if (action === 'ver-companias') {
+        setView(VIEW_STATES.COMPANIES, { force: true });
+        return;
+      }
+
+      if (action === 'agregar-compania') {
+        showActionBanner('Pronto podrás registrar nuevas compañías desde aquí.');
+        return;
+      }
+
+      if (!action) return;
+
+      setView(VIEW_STATES.PERSONAL, { force: true });
+      const label = targetItem.querySelector('.menu-label')?.textContent ?? action;
+      showActionBanner(`Opción "${label}" seleccionada.`);
     });
 
     if (assistiveButton) {
@@ -2194,6 +2764,8 @@
       pointer.x = assistiveButtonPosition.x;
       pointer.y = assistiveButtonPosition.y;
     }
+
+    setView(VIEW_STATES.PERSONAL, { force: true });
 
     applyPointerMode();
     scheduleRender();
