@@ -768,6 +768,27 @@
       max-height: 100%;
       overflow-y: auto;
       overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(45, 212, 191, 0.65) rgba(15, 23, 42, 0.35);
+    }
+
+    .search-card::-webkit-scrollbar {
+      width: 0.55rem;
+    }
+
+    .search-card::-webkit-scrollbar-track {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.35));
+      border-radius: 9999px;
+    }
+
+    .search-card::-webkit-scrollbar-thumb {
+      border-radius: 9999px;
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.85), rgba(45, 212, 191, 0.75));
+      box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.6);
+    }
+
+    .search-card::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, rgba(129, 230, 217, 0.95), rgba(16, 185, 129, 0.9));
     }
 
     @media (max-width: 640px) {
