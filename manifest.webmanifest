@@ -1,0 +1,21 @@
+{
+  "name": "JSC Control de Asistencia",
+  "short_name": "Asistencia JSC",
+  "start_url": "control_asistencia.html",
+  "display": "standalone",
+  "background_color": "#03040c",
+  "theme_color": "#03040c",
+  "lang": "es-MX",
+  "icons": [
+    {
+      "src": "journey_no_bg.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "journey_background.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
