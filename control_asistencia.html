@@ -657,6 +657,13 @@
     let pendingOperationsCount = 0;
     let isSyncingPendingOperations = false;
 
+    function isNavigatorOnline() {
+      if (typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean') {
+        return true;
+      }
+      return navigator.onLine;
+    }
+
     function cloneData(value) {
       if (typeof structuredClone === 'function') {
         try {
@@ -839,9 +846,9 @@
     }
 
     function isNetworkError(error) {
-      if (!error) return !navigator.onLine;
+      if (!error) return !isNavigatorOnline();
       const message = String(error.message || '');
-      return (!navigator.onLine) || error.name === 'TypeError' || /Failed to fetch|NetworkError/i.test(message);
+      return (!isNavigatorOnline()) || error.name === 'TypeError' || /Failed to fetch|NetworkError/i.test(message);
     }
 
     async function refreshPendingOperationsCount() {
@@ -861,7 +868,7 @@
 
     function updateOfflineBanner() {
       if (!offlineStore.enabled || !offlineBanner || !offlineBannerTitle || !offlineBannerMessage) return;
-      const offline = !navigator.onLine;
+      const offline = !isNavigatorOnline();
       const hasPending = pendingOperationsCount > 0;
       if (!offline && !hasPending && !isSyncingPendingOperations) {
         offlineBanner.classList.add('hidden');
@@ -945,7 +952,7 @@
     }
 
     async function syncPendingOperations({ silent = false } = {}) {
-      if (!offlineStore.enabled || !navigator.onLine || isSyncingPendingOperations) {
+      if (!offlineStore.enabled || isSyncingPendingOperations) {
         return;
       }
       let operations = [];
@@ -984,9 +991,7 @@
 
     function handleConnectivityChange() {
       updateOfflineBanner();
-      if (navigator.onLine) {
-        syncPendingOperations({ silent: true });
-      }
+      syncPendingOperations({ silent: true });
     }
 
     if (typeof window !== 'undefined') {
@@ -1495,7 +1500,6 @@
     }
 
     async function fetchServerDebugInfo() {
-      if (!navigator.onLine) return null;
       try {
         const response = await fetch(`${API_BASE_URL}?debug=1`);
         if (!response.ok) return null;
@@ -1524,46 +1528,44 @@
 
     async function createManualEmployee({ name, position, department }) {
       const dateStr = formatForInput(currentDate);
-      if (navigator.onLine) {
-        try {
-          const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              employee: {
-                name,
-                position,
-                department,
-              },
-            }),
-          });
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee: {
+              name,
+              position,
+              department,
+            },
+          }),
+        });
 
-          if (!response.ok) {
-            const message = await parseErrorResponse(response);
-            throw new Error(message || 'No se pudo agregar el empleado.');
-          }
-
-          const payload = await response.json();
-          if (!payload || !payload.employee) {
-            throw new Error('El servidor no devolvió la información del empleado creado.');
-          }
-
-          const newEmployee = prepareEmployee(payload.employee, dateStr);
-          employees.push(newEmployee);
-          employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
-          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
-          recalculateReadOnlyState();
-          refreshUI();
-          await persistEmployeesSnapshot(dateStr);
-          updateOfflineBanner();
-          return newEmployee;
-        } catch (error) {
-          if (!isNetworkError(error)) {
-            console.error('Error al crear empleado manual:', error);
-            throw error;
-          }
-          console.warn('Fallo de red al crear empleado, se almacenará localmente.', error);
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo agregar el empleado.');
         }
+
+        const payload = await response.json();
+        if (!payload || !payload.employee) {
+          throw new Error('El servidor no devolvió la información del empleado creado.');
+        }
+
+        const newEmployee = prepareEmployee(payload.employee, dateStr);
+        employees.push(newEmployee);
+        employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+        attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+        recalculateReadOnlyState();
+        refreshUI();
+        await persistEmployeesSnapshot(dateStr);
+        updateOfflineBanner();
+        return newEmployee;
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          console.error('Error al crear empleado manual:', error);
+          throw error;
+        }
+        console.warn('Fallo de red al crear empleado, se almacenará localmente.', error);
       }
 
       const tempId = generateLocalEmployeeId();
@@ -1598,7 +1600,7 @@
     async function deleteEmployeeFromServer(id, dateStr) {
       const effectiveDate = dateStr || formatForInput(currentDate);
       const isLocalId = String(id).startsWith('local-');
-      if (navigator.onLine && !isLocalId) {
+      if (!isLocalId) {
         try {
           const response = await fetch(API_BASE_URL, {
             method: 'DELETE',
@@ -1774,7 +1776,7 @@
       const dateStr = formatForInput(targetDate);
       let loadedFromServer = false;
 
-      if (!preferCache && navigator.onLine) {
+      if (!preferCache) {
         try {
           const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`);
           if (!response.ok) {
@@ -1825,7 +1827,7 @@
           employees = cached.employees.map(emp => prepareEmployee(emp, dateStr));
           attendanceHasRecords = Boolean(cached.attendanceHasRecords);
         } else {
-          if (!loadedFromServer && !navigator.onLine) {
+          if (!loadedFromServer && !isNavigatorOnline()) {
             alert('No hay conexión a internet y no existen datos guardados previamente para esta fecha.');
           }
           employees = [];
@@ -1838,70 +1840,66 @@
       refreshUI();
       await refreshPendingOperationsCount();
       updateOfflineBanner();
-      if (navigator.onLine) {
-        await syncPendingOperations({ silent: true });
-      }
+      await syncPendingOperations({ silent: true });
     }
 
     async function saveEmployeesToServer(newEmployees) {
       const dateStr = formatForInput(currentDate);
-      if (navigator.onLine) {
-        try {
-          const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employees: newEmployees })
-          });
-          if (!response.ok) {
-            const message = await parseErrorResponse(response);
-            throw new Error(message || 'No se pudo guardar la información en el servidor.');
-          }
-          const payload = await response.json();
-          if (Array.isArray(payload.employees)) {
-            employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
-            attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
-            recalculateReadOnlyState();
-            resetVisibleEmployeeLimit();
-            refreshUI();
-            await persistEmployeesSnapshot(dateStr);
-          }
-          if (
-            typeof payload.inserted === 'number' ||
-            typeof payload.skipped === 'number' ||
-            typeof payload.updated === 'number' ||
-            typeof payload.matchedByName === 'number' ||
-            typeof payload.promoted === 'number'
-          ) {
-            const summaryParts = [];
-            summaryParts.push(`Nuevos: ${payload.inserted ?? 0}`);
-            summaryParts.push(`Omitidos: ${payload.skipped ?? 0}`);
-            summaryParts.push(`Actualizados por ID: ${payload.updated ?? 0}`);
-            summaryParts.push(`Actualizados por nombre: ${payload.matchedByName ?? 0}`);
-            summaryParts.push(`Convertidos desde alta manual: ${payload.promoted ?? 0}`);
-            if (typeof payload.deactivated === 'number') {
-              summaryParts.push(`Desactivados (no presentes en Excel): ${payload.deactivated}`);
-            }
-            alert('Importación completada.\n' + summaryParts.join('\n'));
-          }
-          updateOfflineBanner();
-          return;
-        } catch (error) {
-          if (!isNetworkError(error)) {
-            console.error('Error al guardar empleados en el servidor:', error);
-            const debugInfo = await fetchServerDebugInfo();
-            if (debugInfo) {
-              console.error('Información de depuración del servidor:', debugInfo);
-            }
-            alert(
-              'No se pudieron guardar los empleados en Neon. ' +
-                'Detalle: ' +
-                (error?.message || 'Error desconocido. Revisa tu conexión y configuración.')
-            );
-            refreshUI();
-            return;
-          }
-          console.warn('Fallo de red durante la importación, se guardará localmente.', error);
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employees: newEmployees })
+        });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo guardar la información en el servidor.');
         }
+        const payload = await response.json();
+        if (Array.isArray(payload.employees)) {
+          employees = mapServerEmployeesWithCheckout(payload.employees, dateStr);
+          attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+          recalculateReadOnlyState();
+          resetVisibleEmployeeLimit();
+          refreshUI();
+          await persistEmployeesSnapshot(dateStr);
+        }
+        if (
+          typeof payload.inserted === 'number' ||
+          typeof payload.skipped === 'number' ||
+          typeof payload.updated === 'number' ||
+          typeof payload.matchedByName === 'number' ||
+          typeof payload.promoted === 'number'
+        ) {
+          const summaryParts = [];
+          summaryParts.push(`Nuevos: ${payload.inserted ?? 0}`);
+          summaryParts.push(`Omitidos: ${payload.skipped ?? 0}`);
+          summaryParts.push(`Actualizados por ID: ${payload.updated ?? 0}`);
+          summaryParts.push(`Actualizados por nombre: ${payload.matchedByName ?? 0}`);
+          summaryParts.push(`Convertidos desde alta manual: ${payload.promoted ?? 0}`);
+          if (typeof payload.deactivated === 'number') {
+            summaryParts.push(`Desactivados (no presentes en Excel): ${payload.deactivated}`);
+          }
+          alert('Importación completada.\n' + summaryParts.join('\n'));
+        }
+        updateOfflineBanner();
+        return;
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          console.error('Error al guardar empleados en el servidor:', error);
+          const debugInfo = await fetchServerDebugInfo();
+          if (debugInfo) {
+            console.error('Información de depuración del servidor:', debugInfo);
+          }
+          alert(
+            'No se pudieron guardar los empleados en Neon. ' +
+              'Detalle: ' +
+              (error?.message || 'Error desconocido. Revisa tu conexión y configuración.')
+          );
+          refreshUI();
+          return;
+        }
+        console.warn('Fallo de red durante la importación, se guardará localmente.', error);
       }
 
       const normalized = (Array.isArray(newEmployees) ? newEmployees : []).map((employee) => {
@@ -1943,59 +1941,57 @@
 
     async function updateEmployeeCheckStatus(id, checkedIn, { previousRecorded = false, previousCheckedInAt = null } = {}) {
       const dateStr = formatForInput(currentDate);
-      if (navigator.onLine) {
-        try {
-          const response = await fetch(API_BASE_URL, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, checkedIn, date: dateStr })
-          });
-          if (!response.ok) {
-            const message = await parseErrorResponse(response);
-            throw new Error(message || 'Error al actualizar asistencia.');
-          }
-          const payload = await response.json();
-          if (payload && payload.employee) {
-            const updated = prepareEmployee(payload.employee, dateStr);
-            const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
-            if (index !== -1) {
-              employees[index] = updated;
-              attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
-              recalculateReadOnlyState();
-              refreshUI();
-              await persistEmployeesSnapshot(dateStr);
-            }
-          }
-          updateOfflineBanner();
-          return;
-        } catch (error) {
-          if (!isNetworkError(error)) {
-            console.error('Error al actualizar asistencia:', error);
-            const debugInfo = await fetchServerDebugInfo();
-            if (debugInfo) {
-              console.error('Información de depuración del servidor:', debugInfo);
-            }
-            alert(
-              'No se pudo actualizar la asistencia en Neon. ' +
-                'Detalle: ' +
-                (error?.message || 'Se revertirá el cambio.')
-            );
-            const target = employees.find(emp => String(emp.id) === String(id));
-            if (target) {
-              target.checkedIn = !checkedIn;
-              target.attendanceRecorded = previousRecorded;
-              target.checkedInAt = previousCheckedInAt;
-              attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
-              recalculateReadOnlyState();
-              updateReadOnlyBanner();
-              updatePresentCount();
-              updateClearButtonState();
-              refreshUI();
-            }
-            return;
-          }
-          console.warn('Fallo de red al actualizar asistencia, se almacenará localmente.', error);
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, checkedIn, date: dateStr })
+        });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'Error al actualizar asistencia.');
         }
+        const payload = await response.json();
+        if (payload && payload.employee) {
+          const updated = prepareEmployee(payload.employee, dateStr);
+          const index = employees.findIndex(emp => String(emp.id) === String(updated.id));
+          if (index !== -1) {
+            employees[index] = updated;
+            attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+            recalculateReadOnlyState();
+            refreshUI();
+            await persistEmployeesSnapshot(dateStr);
+          }
+        }
+        updateOfflineBanner();
+        return;
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          console.error('Error al actualizar asistencia:', error);
+          const debugInfo = await fetchServerDebugInfo();
+          if (debugInfo) {
+            console.error('Información de depuración del servidor:', debugInfo);
+          }
+          alert(
+            'No se pudo actualizar la asistencia en Neon. ' +
+              'Detalle: ' +
+              (error?.message || 'Se revertirá el cambio.')
+          );
+          const target = employees.find(emp => String(emp.id) === String(id));
+          if (target) {
+            target.checkedIn = !checkedIn;
+            target.attendanceRecorded = previousRecorded;
+            target.checkedInAt = previousCheckedInAt;
+            attendanceHasRecords = employees.some(emp => emp.attendanceRecorded);
+            recalculateReadOnlyState();
+            updateReadOnlyBanner();
+            updatePresentCount();
+            updateClearButtonState();
+            refreshUI();
+          }
+          return;
+        }
+        console.warn('Fallo de red al actualizar asistencia, se almacenará localmente.', error);
       }
 
       const target = employees.find(emp => String(emp.id) === String(id));
@@ -2434,40 +2430,38 @@
 
     async function clearAttendanceForCurrentDate() {
       const dateStr = formatForInput(currentDate);
-      if (navigator.onLine) {
-        try {
-          const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`, { method: 'DELETE' });
-          if (!response.ok) {
-            const message = await parseErrorResponse(response);
-            throw new Error(message || 'No se pudo limpiar la asistencia.');
-          }
-          employees = employees.map(emp => ({
-            ...emp,
-            checkedIn: false,
-            attendanceRecorded: false,
-            checkedInAt: null,
-            checkedOut: false,
-          }));
-          clearCheckoutStateForDate(dateStr);
-          attendanceHasRecords = false;
-          recalculateReadOnlyState();
-          refreshUI();
-          await persistEmployeesSnapshot(dateStr);
-          updateOfflineBanner();
-          showClearToast('Asistencias del día eliminadas.');
-          return;
-        } catch (error) {
-          if (!isNetworkError(error)) {
-            console.error('Error al limpiar asistencia:', error);
-            alert(
-              'No se pudo limpiar la asistencia en Neon. ' +
-                'Detalle: ' +
-                (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
-            );
-            return;
-          }
-          console.warn('Fallo de red al limpiar asistencia, se guardará el cambio localmente.', error);
+      try {
+        const response = await fetch(`${API_BASE_URL}?date=${encodeURIComponent(dateStr)}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          throw new Error(message || 'No se pudo limpiar la asistencia.');
         }
+        employees = employees.map(emp => ({
+          ...emp,
+          checkedIn: false,
+          attendanceRecorded: false,
+          checkedInAt: null,
+          checkedOut: false,
+        }));
+        clearCheckoutStateForDate(dateStr);
+        attendanceHasRecords = false;
+        recalculateReadOnlyState();
+        refreshUI();
+        await persistEmployeesSnapshot(dateStr);
+        updateOfflineBanner();
+        showClearToast('Asistencias del día eliminadas.');
+        return;
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          console.error('Error al limpiar asistencia:', error);
+          alert(
+            'No se pudo limpiar la asistencia en Neon. ' +
+              'Detalle: ' +
+              (error?.message || 'Error desconocido. Revisa la consola para más detalles.')
+          );
+          return;
+        }
+        console.warn('Fallo de red al limpiar asistencia, se guardará el cambio localmente.', error);
       }
 
       employees = employees.map(emp => ({
