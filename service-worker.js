@@ -1,4 +1,4 @@
-const CACHE_NAME = 'control-asistencia-cache-v1';
+const CACHE_NAME = 'control-asistencia-cache-v2';
 const OFFLINE_URLS = [
   './',
   './control_asistencia.html',
@@ -43,6 +43,16 @@ self.addEventListener('fetch', (event) => {
 
   const requestUrl = new URL(request.url);
 
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isApiRequest =
+    isSameOrigin && requestUrl.pathname.startsWith('/.netlify/functions/');
+
+  if (isApiRequest) {
+    // Always hit the network for dynamic API responses so attendance updates
+    // are never served from the HTTP cache.
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -60,7 +70,7 @@ self.addEventListener('fetch', (event) => {
 
   const isPrecachedAsset = OFFLINE_URLS.some((asset) => requestUrl.pathname.endsWith(asset.replace('./', '/')));
 
-  if (isPrecachedAsset || requestUrl.origin === self.location.origin) {
+  if (isPrecachedAsset || isSameOrigin) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) {
